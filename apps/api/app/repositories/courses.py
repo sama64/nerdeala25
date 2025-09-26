@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import Course
@@ -47,7 +47,7 @@ async def update(session: AsyncSession, course: Course, payload: CourseUpdate) -
     if not data:
         return course
 
-    await session.execute(update(Course).where(Course.id == course.id).values(**data))
+    await session.execute(sa_update(Course).where(Course.id == course.id).values(**data))
     await session.commit()
     await session.refresh(course)
     return course

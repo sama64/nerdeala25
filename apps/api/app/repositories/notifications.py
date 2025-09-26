@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
@@ -50,7 +50,7 @@ async def update(
         return notification
 
     await session.execute(
-        update(Notification).where(Notification.id == notification.id).values(**data)
+        sa_update(Notification).where(Notification.id == notification.id).values(**data)
     )
     await session.commit()
     await session.refresh(notification)

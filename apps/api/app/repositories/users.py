@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,7 +60,7 @@ async def update(session: AsyncSession, user: User, payload: UserUpdate) -> User
         return user
 
     await session.execute(
-        update(User)
+        sa_update(User)
         .where(User.id == user.id)
         .values(**patch_data)
     )
