@@ -72,13 +72,15 @@ jobs:
     - name: Extract API image reference
       id: image-api
       run: |
-        # Use the first tag from metadata (which will be sha-xxxxx)
-        TAGS='${{ steps.meta-api.outputs.tags }}'
-        echo "Available tags: $TAGS"
-        IMAGE_REF=$(echo "$TAGS" | head -n1)
-        echo "Selected image: $IMAGE_REF"
+        # Get the SHA-based tag directly
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
-        echo "🔍 Build: API image will be $IMAGE_REF"
+        
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-api.outputs.tags }}'
 
     # Build Next.js Frontend
     - name: Extract metadata for Web
@@ -108,13 +110,15 @@ jobs:
     - name: Extract Web image reference
       id: image-web
       run: |
-        # Use the first tag from metadata (which will be sha-xxxxx)
-        TAGS='${{ steps.meta-web.outputs.tags }}'
-        echo "Available tags: $TAGS"
-        IMAGE_REF=$(echo "$TAGS" | head -n1)
-        echo "Selected image: $IMAGE_REF"
+        # Get the SHA-based tag directly
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
-        echo "🔍 Build: Web image will be $IMAGE_REF"
+        
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-web.outputs.tags }}'
 
     # Build WhatsApp Service
     - name: Extract metadata for WhatsApp
@@ -147,13 +151,15 @@ jobs:
     - name: Extract WhatsApp image reference
       id: image-whatsapp
       run: |
-        # Use the first tag from metadata (which will be sha-xxxxx)
-        TAGS='${{ steps.meta-whatsapp.outputs.tags }}'
-        echo "Available tags: $TAGS"
-        IMAGE_REF=$(echo "$TAGS" | head -n1)
-        echo "Selected image: $IMAGE_REF"
+        # Get the SHA-based tag directly
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
-        echo "🔍 Build: WhatsApp image will be $IMAGE_REF"
+        
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-whatsapp.outputs.tags }}'
 
   # Run tests
   test:
