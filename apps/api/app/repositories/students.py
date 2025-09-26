@@ -43,7 +43,10 @@ async def list_students(
     if course_id:
         query = query.where(Student.course_id == course_id)
     result = await session.execute(
-        query.options(selectinload(Student.user))
+        query.options(
+            selectinload(Student.user),
+            selectinload(Student.notifications),
+        )
         .order_by(Student.progress.desc())
         .offset(skip)
         .limit(limit)

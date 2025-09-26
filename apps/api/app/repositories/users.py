@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import select, update as sa_update
+from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,13 @@ async def get_by_email(session: AsyncSession, email: str) -> Optional[User]:
 
 async def get(session: AsyncSession, user_id: str) -> Optional[User]:
     result = await session.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def get_by_name(session: AsyncSession, name: str) -> Optional[User]:
+    result = await session.execute(
+        select(User).where(func.lower(User.name) == name.lower())
+    )
     return result.scalar_one_or_none()
 
 

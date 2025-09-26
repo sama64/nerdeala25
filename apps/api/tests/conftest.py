@@ -1,9 +1,16 @@
 import asyncio
 from collections.abc import AsyncGenerator
+from pathlib import Path
+import sys
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+CURRENT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURRENT_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from app.api.deps import get_db
 from app.db.base import Base

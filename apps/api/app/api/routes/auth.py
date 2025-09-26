@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.token import AuthToken, TokenType
 from app.models.user import User, UserRole
-from app.repositories import tokens, users
+from app.repositories import oauth_credentials, tokens, users
 from app.schemas.auth import (
     LoginRequest,
     PasswordRecoveryRequest,
@@ -26,6 +26,15 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.services import email
+from app.services.google_classroom import (
+    ClassroomIntegrationError,
+    google_classroom_service,
+)
+from app.services.google_oauth import (
+    GOOGLE_AUTH_URL,
+    GOOGLE_TOKEN_URL,
+    GOOGLE_USERINFO_URL,
+)
 from urllib.parse import urlencode, urlparse
 import logging
 
@@ -41,9 +50,6 @@ def _normalize_email(email_address: str) -> str:
     return email_address.lower().strip()
 
 
-GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 _oauth_states: dict[str, tuple[float, str]] = {}
 OAUTH_STATE_TTL = 600.0
 
@@ -143,9 +149,14 @@ async def google_login(request: Request) -> RedirectResponse:
         "scope": " ".join(
             (
                 "openid",
-                "email",
-                "profile",
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/userinfo.profile",
                 "https://www.googleapis.com/auth/classroom.courses.readonly",
+                "https://www.googleapis.com/auth/classroom.rosters.readonly",
+                "https://www.googleapis.com/auth/classroom.student-submissions.students.readonly",
+                "https://www.googleapis.com/auth/classroom.profile.emails",
+                "https://www.googleapis.com/auth/classroom.profile.photos",
+                "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
             )
         ),
         "state": state,
@@ -244,7 +255,7 @@ async def google_exchange(
                     name=display_name,
                     email=normalized_email,
                     password=random_password,
-                    role=UserRole.TEACHER,
+                    role=UserRole.STUDENT,
                 ),
             )
         except ValueError as exc:
@@ -258,14 +269,36 @@ async def google_exchange(
             detail = f"{detail}: {creation_error}"
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
 
+    is_teacher_in_classroom = False
+    if google_access_token:
+        try:
+            classroom_courses = await google_classroom_service.fetch_courses(google_access_token)
+            is_teacher_in_classroom = any(course.is_teacher for course in classroom_courses)
+        except ClassroomIntegrationError as exc:
+            logger.info("No pudimos determinar el rol en Classroom: %s", exc)
+
     updates: dict[str, object] = {}
     if not user.verified:
         updates["verified"] = True
     if full_name and user.name != full_name:
         updates["name"] = full_name
+    if user.role not in {UserRole.ADMIN, UserRole.COORDINATOR}:
+        desired_role = UserRole.TEACHER if is_teacher_in_classroom else UserRole.STUDENT
+        if user.role != desired_role:
+            updates["role"] = desired_role
 
     if updates:
         user = await users.update(session, user, UserUpdate(**updates))
+
+    credential = await oauth_credentials.upsert_google_credentials(
+        session,
+        user_id=user.id,
+        access_token=google_access_token,
+        refresh_token=google_refresh_token,
+        expires_at=google_token_expires_at,
+    )
+
+    google_refresh_token = credential.refresh_token
 
     expires_at = datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expires_minutes)
     token = create_access_token(user.id)
