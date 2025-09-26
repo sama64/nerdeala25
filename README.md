@@ -1,4 +1,6 @@
-# Nerdeala Vibeathon
+# Nerdeala25 Vibeathon
+
+<!-- Deployment trigger: Testing with configured secrets -->
 
 Plataforma educativa full stack para integrar Google Classroom con paneles de progreso, seguimiento de asistencia y notificaciones inteligentes. El proyecto combina un frontend en Next.js + Tailwind con un backend en FastAPI + SQLAlchemy, siguiendo los lineamientos de accesibilidad, seguridad y mantenibilidad definidos en las guías de implementación.
 
