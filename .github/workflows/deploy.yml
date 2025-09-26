@@ -20,9 +20,9 @@ jobs:
       contents: read
       packages: write
     outputs:
-      api-image: ${{ steps.meta-api.outputs.tags }}
-      web-image: ${{ steps.meta-web.outputs.tags }}
-      whatsapp-image: ${{ steps.meta-whatsapp.outputs.tags }}
+      api-image: ${{ steps.image-api.outputs.image }}
+      web-image: ${{ steps.image-web.outputs.image }}
+      whatsapp-image: ${{ steps.image-whatsapp.outputs.image }}
     
     steps:
     - name: Checkout repository
@@ -69,6 +69,10 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Extract API image reference
+      id: image-api
+      run: echo "image=${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
+
     # Build Next.js Frontend
     - name: Extract metadata for Web
       id: meta-web
@@ -93,6 +97,10 @@ jobs:
           NODE_ENV=production
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Extract Web image reference
+      id: image-web
+      run: echo "image=${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
 
     # Build WhatsApp Service
     - name: Extract metadata for WhatsApp
@@ -121,6 +129,10 @@ jobs:
           DEBUG=${{ secrets.DEBUG }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Extract WhatsApp image reference
+      id: image-whatsapp
+      run: echo "image=${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
 
   # Run tests
   test:
