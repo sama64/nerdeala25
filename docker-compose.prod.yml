@@ -1,0 +1,200 @@
+version: '3.8'
+
+# Production Docker Compose for Nerdeala Platform
+# 4 services: FastAPI backend, Next.js frontend, Redis, WhatsApp service
+
+services:
+  # FastAPI Backend + Python Services + SQLite
+  api:
+    image: ${API_DOCKER_IMAGE:-nerdeala-api:latest}
+    container_name: nerdeala_api_prod
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # Database configuration
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./nerdeala.db}
+      - SYNC_DATABASE_URL=${SYNC_DATABASE_URL:-sqlite:///./nerdeala.db}
+      # JWT configuration
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_ACCESS_TOKEN_EXPIRES_MINUTES=${JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-30}
+      # CORS configuration
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+      # Google Classroom integration
+      - CLASSROOM_API_BASE_URL=${CLASSROOM_API_BASE_URL:-}
+      - CLASSROOM_SERVICE_ACCOUNT_FILE=${CLASSROOM_SERVICE_ACCOUNT_FILE:-}
+      # Redis configuration
+      - REDIS_URL=redis://redis:6379
+      # Debug settings
+      - DEBUG=${DEBUG:-false}
+      - PYTHONPATH=/app
+    volumes:
+      # SQLite database persistence
+      - api-data:/app/data
+      # Service account file (if provided)
+      - ${CLASSROOM_SERVICE_ACCOUNT_PATH:-/dev/null}:${CLASSROOM_SERVICE_ACCOUNT_FILE:-/dev/null}:ro
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - nerdeala_network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Next.js Frontend
+  web:
+    image: ${WEB_DOCKER_IMAGE:-nerdeala-web:latest}
+    container_name: nerdeala_web_prod
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # API configuration
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000/api/v1}
+      - NODE_ENV=production
+      # Debug settings
+      - DEBUG=${DEBUG:-false}
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - nerdeala_network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: nerdeala_redis_prod
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - nerdeala_network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # WhatsApp Service (Node.js)
+  whatsapp:
+    image: ${WHATSAPP_DOCKER_IMAGE:-nerdeala-whatsapp:latest}
+    container_name: nerdeala_whatsapp_prod
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      # Redis configuration
+      - REDIS_URL=redis://redis:6379
+      - WHATSAPP_QUEUE=whatsapp:pending
+      - WHATSAPP_MAX_RETRIES=${WHATSAPP_MAX_RETRIES:-5}
+      - WHATSAPP_CLIENT_ID=${WHATSAPP_CLIENT_ID:-nerdeala-prod}
+      - WHATSAPP_SESSION_DIR=/app/session-data
+      # Debug settings
+      - DEBUG=${DEBUG:-false}
+      - NODE_ENV=production
+    volumes:
+      # WhatsApp session persistence
+      - whatsapp-session:/app/session-data
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - nerdeala_network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - SYS_ADMIN  # Required for Chrome/Puppeteer
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  api-data:
+    name: nerdeala_api_data
+  redis-data:
+    name: nerdeala_redis_data
+  whatsapp-session:
+    name: nerdeala_whatsapp_session
+
+networks:
+  nerdeala_network:
+    name: nerdeala_network
+    driver: bridge
