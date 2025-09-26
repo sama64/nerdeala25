@@ -21,7 +21,10 @@ export default function AutenticacionPage() {
 
   const handleGoogleLogin = () => {
     setStatus("processing");
-    window.location.href = googleLoginUrl;
+    if (typeof window === "undefined") return;
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const target = `${googleLoginUrl}?redirect_uri=${encodeURIComponent(redirectUri)}`;
+    window.location.href = target;
   };
 
   return (

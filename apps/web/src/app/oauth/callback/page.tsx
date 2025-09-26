@@ -5,6 +5,28 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { apiPost } from "@/lib/api-client";
+import type { ApiError } from "@/lib/fetcher";
+
+function resolveErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error && "message" in error && typeof (error as { message: unknown }).message === "string") {
+    const apiError = error as ApiError;
+    if (apiError.details && typeof apiError.details === "object" && "detail" in apiError.details) {
+      const detail = apiError.details.detail;
+      if (typeof detail === "string" && detail.trim()) {
+        return detail;
+      }
+    }
+    return apiError.message;
+  }
+  return "No pudimos validar la sesión. Vuelve a intentarlo.";
+}
+
+type ExchangeResponse = {
+  access_token: string;
+  expires_at: string;
+  token_type: string;
+};
 
 export default function OAuthCallbackPage() {
   const router = useRouter();
@@ -18,28 +40,35 @@ export default function OAuthCallbackPage() {
     if (handled.current) return;
     handled.current = true;
 
-    const token = searchParams.get("token");
     const error = searchParams.get("error");
-
-    if (token) {
-      completeSocialLogin(token)
-        .then(() => {
-          router.replace("/panel-progreso");
-        })
-        .catch(() => {
-          setStatus("error");
-          setMessage("No pudimos validar la sesión. Vuelve a intentarlo.");
-        });
-    } else {
+    if (error) {
       setStatus("error");
       if (error === "access_denied") {
         setMessage("Cancelaste el acceso con Google.");
-      } else if (error) {
-        setMessage("Google devolvió un error. Intenta nuevamente.");
       } else {
-        setMessage("No pudimos procesar la respuesta de Google.");
+        setMessage("Google devolvió un error. Intenta nuevamente.");
       }
+      return;
     }
+
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+
+    if (!code || !state) {
+      setStatus("error");
+      setMessage("No pudimos procesar la respuesta de Google.");
+      return;
+    }
+
+    apiPost<ExchangeResponse>("/api/v1/auth/google/exchange", { code, state })
+      .then(async (response) => {
+        await completeSocialLogin(response.access_token);
+        router.replace("/panel-progreso");
+      })
+      .catch((err) => {
+        setStatus("error");
+        setMessage(resolveErrorMessage(err));
+      });
   }, [completeSocialLogin, router, searchParams]);
 
   return (

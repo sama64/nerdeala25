@@ -5,12 +5,13 @@ export type ApiError = {
 };
 
 export async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(input, {
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers
-    },
-    ...init
+    ...init,
+    headers: Object.fromEntries(headers.entries())
   });
 
   if (!response.ok) {

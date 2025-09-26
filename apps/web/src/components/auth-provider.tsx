@@ -12,6 +12,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (payload: { name: string; email: string; password: string; role: string }) => Promise<void>;
+  completeSocialLogin: (accessToken: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -50,6 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(profile);
   }, []);
 
+  const completeSocialLogin = useCallback(async (accessToken: string) => {
+    setAuthToken(accessToken);
+    setToken(accessToken);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, accessToken);
+    }
+    const profile = await apiGet<User>("/api/v1/auth/me");
+    setUser(profile);
+  }, []);
+
   const logout = useCallback(() => {
     setAuthToken(null);
     setToken(null);
@@ -67,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, loading, login, logout, register }),
-    [loading, login, logout, register, token, user]
+    () => ({ user, token, loading, login, logout, register, completeSocialLogin }),
+    [completeSocialLogin, loading, login, logout, register, token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
