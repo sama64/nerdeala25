@@ -72,8 +72,11 @@ jobs:
     - name: Extract API image reference
       id: image-api
       run: |
-        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        # Use the first tag from metadata (which will be sha-xxxxx)
+        TAGS='${{ steps.meta-api.outputs.tags }}'
+        echo "Available tags: $TAGS"
+        IMAGE_REF=$(echo "$TAGS" | head -n1)
+        echo "Selected image: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         echo "🔍 Build: API image will be $IMAGE_REF"
 
@@ -105,8 +108,11 @@ jobs:
     - name: Extract Web image reference
       id: image-web
       run: |
-        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        # Use the first tag from metadata (which will be sha-xxxxx)
+        TAGS='${{ steps.meta-web.outputs.tags }}'
+        echo "Available tags: $TAGS"
+        IMAGE_REF=$(echo "$TAGS" | head -n1)
+        echo "Selected image: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         echo "🔍 Build: Web image will be $IMAGE_REF"
 
@@ -141,8 +147,11 @@ jobs:
     - name: Extract WhatsApp image reference
       id: image-whatsapp
       run: |
-        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        # Use the first tag from metadata (which will be sha-xxxxx)
+        TAGS='${{ steps.meta-whatsapp.outputs.tags }}'
+        echo "Available tags: $TAGS"
+        IMAGE_REF=$(echo "$TAGS" | head -n1)
+        echo "Selected image: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         echo "🔍 Build: WhatsApp image will be $IMAGE_REF"
 
@@ -232,14 +241,23 @@ jobs:
         WHATSAPP_IMAGE: ${{ needs.build.outputs.whatsapp-image }}
       run: |
         echo "🔍 Debug: API_IMAGE=$API_IMAGE"
-        echo "🔍 Debug: WEB_IMAGE=$WEB_IMAGE"
+        echo "🔍 Debug: WEB_IMAGE=$WEB_IMAGE"  
         echo "🔍 Debug: WHATSAPP_IMAGE=$WHATSAPP_IMAGE"
+        
+        # Check if variables are empty
+        if [ -z "$API_IMAGE" ] || [ -z "$WEB_IMAGE" ] || [ -z "$WHATSAPP_IMAGE" ]; then
+          echo "❌ ERROR: One or more image references are empty!"
+          echo "API_IMAGE='$API_IMAGE'"
+          echo "WEB_IMAGE='$WEB_IMAGE'"
+          echo "WHATSAPP_IMAGE='$WHATSAPP_IMAGE'"
+          exit 1
+        fi
         
         ssh -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
           set -e
-          export API_IMAGE='$API_IMAGE'
-          export WEB_IMAGE='$WEB_IMAGE'
-          export WHATSAPP_IMAGE='$WHATSAPP_IMAGE'
+          export API_DOCKER_IMAGE='$API_IMAGE'
+          export WEB_DOCKER_IMAGE='$WEB_IMAGE'
+          export WHATSAPP_DOCKER_IMAGE='$WHATSAPP_IMAGE'
           
           echo '🚀 Starting Nerdeala production deployment...'
           
@@ -249,22 +267,17 @@ jobs:
           echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           echo '🐳 Pulling latest Docker images...'
-          echo \"Debug: API_IMAGE=\$API_IMAGE\"
-          echo \"Debug: WEB_IMAGE=\$WEB_IMAGE\" 
-          echo \"Debug: WHATSAPP_IMAGE=\$WHATSAPP_IMAGE\"
-          docker pull \"\$API_IMAGE\"
-          docker pull \"\$WEB_IMAGE\"
-          docker pull \"\$WHATSAPP_IMAGE\"
+          echo \"Debug: API_DOCKER_IMAGE=\$API_DOCKER_IMAGE\"
+          echo \"Debug: WEB_DOCKER_IMAGE=\$WEB_DOCKER_IMAGE\" 
+          echo \"Debug: WHATSAPP_DOCKER_IMAGE=\$WHATSAPP_DOCKER_IMAGE\"
+          docker pull \"\$API_DOCKER_IMAGE\"
+          docker pull \"\$WEB_DOCKER_IMAGE\"
+          docker pull \"\$WHATSAPP_DOCKER_IMAGE\"
           
           echo '🐳 Stopping existing containers...'
           docker-compose -f docker-compose.prod.yml down || true
           
           echo '🐳 Starting production containers...'
-          
-          # Export environment variables for docker-compose
-          export API_DOCKER_IMAGE=\"\$API_IMAGE\"
-          export WEB_DOCKER_IMAGE=\"\$WEB_IMAGE\"
-          export WHATSAPP_DOCKER_IMAGE=\"\$WHATSAPP_IMAGE\"
           
           # Database configuration
           export DATABASE_URL=\"${{ secrets.DATABASE_URL }}\"
