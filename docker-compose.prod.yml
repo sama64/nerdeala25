@@ -30,8 +30,6 @@ services:
     volumes:
       # SQLite database persistence
       - api-data:/app/data
-      # Service account file (if provided)
-      - ${CLASSROOM_SERVICE_ACCOUNT_PATH:-/dev/null}:${CLASSROOM_SERVICE_ACCOUNT_FILE:-/dev/null}:ro
     depends_on:
       - redis
     restart: unless-stopped
