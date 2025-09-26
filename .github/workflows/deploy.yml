@@ -160,7 +160,15 @@ jobs:
         # Debug output
         echo "Setting output: image=$IMAGE_REF"
         echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
-
+    
+    # Debug outputs
+    - name: Debug Build Outputs
+      run: |
+        echo "🔍 Verifying outputs from build job:"
+        echo "api-image output: ${{ steps.image-api.outputs.image }}"
+        echo "web-image output: ${{ steps.image-web.outputs.image }}"
+        echo "whatsapp-image output: ${{ steps.image-whatsapp.outputs.image }}"
+        
   # Run tests
   test:
     runs-on: ubuntu-latest
@@ -240,6 +248,13 @@ jobs:
       run: |
         scp -P ${{ secrets.VPS_SSH_PORT || '22' }} docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/nerdeala/
 
+    - name: Debug Outputs from Build
+      run: |
+        echo "🔍 Checking outputs from build job:"
+        echo "build.outputs.api-image: ${{ needs.build.outputs.api-image }}"
+        echo "build.outputs.web-image: ${{ needs.build.outputs.web-image }}"
+        echo "build.outputs.whatsapp-image: ${{ needs.build.outputs.whatsapp-image }}"
+    
     - name: Deploy to production
       env:
         API_IMAGE: ${{ needs.build.outputs.api-image }}
