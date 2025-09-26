@@ -178,7 +178,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: ${{ secrets.PRODUCTION_URL }}
     
     steps:
     - name: Checkout repository
