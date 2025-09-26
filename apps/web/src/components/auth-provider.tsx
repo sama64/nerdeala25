@@ -1,14 +1,50 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { apiGet, apiPost, setAuthToken } from '@/lib/api-client';
+import type { User } from '@/types';
 
-import { apiGet, apiPost, setAuthToken } from "@/lib/api-client";
-import type { User } from "@/types";
+// Auth token storage functions
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('nerdeala-auth-token');
+}
 
-type SocialLoginPayload = {
+function removeAuthToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('nerdeala-auth-token');
+}
+
+function storeAuthToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('nerdeala-auth-token', token);
+}
+
+// Onboarding types - simplified for now
+interface OnboardingState {
+  completed: boolean;
+  phone_e164?: string;
+}
+
+interface SocialLoginPayload {
+  access_token: string;
+  id_token: string;
   accessToken: string;
-  googleAccessToken?: string | null;
-  googleTokenExpiresAt?: string | null;
+  googleAccessToken: string;
+  googleTokenExpiresAt: string;
+}
+
+async function fetchOnboardingState(): Promise<OnboardingState> {
+  try {
+    return await apiGet<OnboardingState>('/api/v1/onboarding/');
+  } catch (error) {
+    return { completed: false };
+  }
+}
+
+type SessionPayload = {
+  user: User;
+  onboarding: OnboardingState | null;
 };
 
 interface AuthContextValue {
@@ -17,10 +53,13 @@ interface AuthContextValue {
   googleAccessToken: string | null;
   googleTokenExpiresAt: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  onboardingState: OnboardingState | null;
+  onboardingLoading: boolean;
+  login: (email: string, password: string) => Promise<SessionPayload>;
   logout: () => void;
   register: (payload: { name: string; email: string; password: string; role: string }) => Promise<void>;
-  completeSocialLogin: (payload: SocialLoginPayload) => Promise<void>;
+  completeSocialLogin: (payload: SocialLoginPayload) => Promise<SessionPayload>;
+  refreshSession: () => Promise<SessionPayload | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -34,7 +73,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [googleTokenExpiresAt, setGoogleTokenExpiresAt] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+
+  const clearStoredAuth = useCallback(() => {
+    setAuthToken(null);
+    setToken(null);
+    setGoogleAccessToken(null);
+    setGoogleTokenExpiresAt(null);
+    setUser(null);
+    setOnboardingState(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
+      window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
+    }
+  }, []);
+
+  const fetchSession = useCallback(async () => {
+    const profile = await apiGet<User>("/api/v1/auth/me");
+    let onboarding: OnboardingState | null = null;
+    try {
+      onboarding = await fetchOnboardingState();
+    } catch (error) {
+      onboarding = null;
+    }
+    setUser(profile);
+    setOnboardingState(onboarding);
+    return { user: profile, onboarding } satisfies SessionPayload;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -49,80 +117,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedToken) {
       setAuthToken(storedToken);
       setToken(storedToken);
-      apiGet<User>("/api/v1/auth/me")
-        .then((profile) => setUser(profile))
+      setLoading(true);
+      setOnboardingLoading(true);
+      fetchSession()
         .catch(() => {
-          setAuthToken(null);
-          setToken(null);
-          setGoogleAccessToken(null);
-          setGoogleTokenExpiresAt(null);
-          window.localStorage.removeItem(STORAGE_KEY);
-          window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
-          window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
+          clearStoredAuth();
         })
-        .finally(() => setLoading(false));
+        .finally(() => {
+          setLoading(false);
+          setOnboardingLoading(false);
+        });
     } else {
       setLoading(false);
+      setOnboardingLoading(false);
     }
-  }, []);
+  }, [clearStoredAuth, fetchSession]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await apiPost<{ access_token: string }>("/api/v1/auth/login", { email, password });
-    setAuthToken(response.access_token);
-    setToken(response.access_token);
-    setGoogleAccessToken(null);
-    setGoogleTokenExpiresAt(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, response.access_token);
-      window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
-      window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
-    }
-    const profile = await apiGet<User>("/api/v1/auth/me");
-    setUser(profile);
-  }, []);
-
-  const completeSocialLogin = useCallback(async ({
-    accessToken,
-    googleAccessToken: incomingGoogleToken,
-    googleTokenExpiresAt: incomingGoogleExpiry
-  }: SocialLoginPayload) => {
-    setAuthToken(accessToken);
-    setToken(accessToken);
-    const googleToken = incomingGoogleToken ?? null;
-    const googleExpiry = incomingGoogleExpiry ?? null;
-    setGoogleAccessToken(googleToken);
-    setGoogleTokenExpiresAt(googleExpiry);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, accessToken);
-      if (googleToken) {
-        window.localStorage.setItem(GOOGLE_TOKEN_STORAGE_KEY, googleToken);
-      } else {
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await apiPost<{ access_token: string }>("/api/v1/auth/login", { email, password });
+      setAuthToken(response.access_token);
+      setToken(response.access_token);
+      setGoogleAccessToken(null);
+      setGoogleTokenExpiresAt(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, response.access_token);
         window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
-      }
-      if (googleExpiry) {
-        window.localStorage.setItem(GOOGLE_TOKEN_EXP_STORAGE_KEY, googleExpiry);
-      } else {
         window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
       }
-    }
 
-    const profile = await apiGet<User>("/api/v1/auth/me");
-    setUser(profile);
-  }, []);
+      setOnboardingLoading(true);
+      try {
+        return await fetchSession();
+      } catch (error) {
+        clearStoredAuth();
+        throw error;
+      } finally {
+        setOnboardingLoading(false);
+      }
+    },
+    [clearStoredAuth, fetchSession]
+  );
+
+  const completeSocialLogin = useCallback(
+    async ({
+      accessToken,
+      googleAccessToken: incomingGoogleToken,
+      googleTokenExpiresAt: incomingGoogleExpiry
+    }: SocialLoginPayload) => {
+      setAuthToken(accessToken);
+      setToken(accessToken);
+      const googleToken = incomingGoogleToken ?? null;
+      const googleExpiry = incomingGoogleExpiry ?? null;
+      setGoogleAccessToken(googleToken);
+      setGoogleTokenExpiresAt(googleExpiry);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, accessToken);
+        if (googleToken) {
+          window.localStorage.setItem(GOOGLE_TOKEN_STORAGE_KEY, googleToken);
+        } else {
+          window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
+        }
+        if (googleExpiry) {
+          window.localStorage.setItem(GOOGLE_TOKEN_EXP_STORAGE_KEY, googleExpiry);
+        } else {
+          window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
+        }
+      }
+
+      setOnboardingLoading(true);
+      try {
+        return await fetchSession();
+      } catch (error) {
+        clearStoredAuth();
+        throw error;
+      } finally {
+        setOnboardingLoading(false);
+      }
+    },
+    [clearStoredAuth, fetchSession]
+  );
 
   const logout = useCallback(() => {
-    setAuthToken(null);
-    setToken(null);
-    setGoogleAccessToken(null);
-    setGoogleTokenExpiresAt(null);
-    setUser(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(STORAGE_KEY);
-      window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
-      window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
-    }
-  }, []);
+    clearStoredAuth();
+  }, [clearStoredAuth]);
 
   const register = useCallback(
     async (payload: { name: string; email: string; password: string; role: string }) => {
@@ -131,6 +210,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const refreshSession = useCallback(async () => {
+    if (!token) return null;
+    setOnboardingLoading(true);
+    try {
+      return await fetchSession();
+    } catch (error) {
+      clearStoredAuth();
+      throw error;
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }, [clearStoredAuth, fetchSession, token]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -138,10 +230,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       googleAccessToken,
       googleTokenExpiresAt,
       loading,
+      onboardingState,
+      onboardingLoading,
       login,
       logout,
       register,
-      completeSocialLogin
+      completeSocialLogin,
+      refreshSession
     }),
     [
       completeSocialLogin,
@@ -150,6 +245,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       logout,
+      onboardingLoading,
+      onboardingState,
+      refreshSession,
       register,
       token,
       user

@@ -4,8 +4,16 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  role: Role | null;
   verified: boolean;
+}
+
+export interface OnboardingState {
+  completed: boolean;
+  completed_at: string | null;
+  selected_role: Role | null;
+  whatsapp_opt_in: boolean;
+  phone_e164: string | null;
 }
 
 export interface Course {

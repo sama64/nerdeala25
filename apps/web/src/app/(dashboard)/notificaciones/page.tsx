@@ -16,6 +16,7 @@ import {
   deleteNotification,
   fetchNotifications,
   fetchStudentOverview,
+  sendTestWhatsAppMessage,
   updateNotificationStatus
 } from "@/features/dashboard/api";
 import type { NotificationItem, StudentOverview } from "@/types";
@@ -28,6 +29,8 @@ export default function NotificacionesPage() {
   const [studentId, setStudentId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [testPhone, setTestPhone] = useState("");
+  const [testFeedback, setTestFeedback] = useState<string | null>(null);
 
   const studentsQuery = useQuery<StudentOverviewList>({
     queryKey: ["students", "for-notifications"],
@@ -57,11 +60,28 @@ export default function NotificacionesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] })
   });
 
+  const testMutation = useMutation<{ status: string }, unknown, void>({
+    mutationFn: async () => {
+      const text = message.trim() || "Mensaje de prueba desde el panel";
+      return sendTestWhatsAppMessage({ phone: testPhone, text });
+    },
+    onMutate: () => {
+      setTestFeedback(null);
+    },
+    onSuccess: () => {
+      setTestFeedback("Mensaje de WhatsApp enviado correctamente");
+    },
+    onError: () => {
+      setTestFeedback("No se pudo enviar el mensaje de prueba. Intenta nuevamente.");
+    }
+  });
+
   const filteredStudents = studentsQuery.data?.items.filter((student) =>
     student.user.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const canSend = Boolean(studentId && message.trim().length > 4);
+  const canTest = Boolean(testPhone.trim().length >= 6);
 
   return (
     <section className="space-y-6">
@@ -113,6 +133,37 @@ export default function NotificacionesPage() {
             <Button type="submit" disabled={!canSend || createMutation.isPending}>
               {createMutation.isPending ? "Enviando..." : "Enviar notificación"}
             </Button>
+            <div className="rounded-lg border border-dashed border-neutral-200 p-4">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-neutral-800">Prueba rápida por WhatsApp</p>
+                  <p className="text-xs text-neutral-500">
+                    Envía este mensaje a tu número para verificar la integración.
+                  </p>
+                </div>
+                {testFeedback && (
+                  <span className={`text-xs ${testFeedback.includes("No") ? "text-red-500" : "text-success"}`}>
+                    {testFeedback}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  className="sm:max-w-xs"
+                  placeholder="Ej. +5491122334455"
+                  value={testPhone}
+                  onChange={(event) => setTestPhone(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!canTest || testMutation.isPending}
+                  onClick={() => testMutation.mutate()}
+                >
+                  {testMutation.isPending ? "Enviando prueba..." : "Probar en WhatsApp"}
+                </Button>
+              </div>
+            </div>
           </form>
         </Card>
 

@@ -50,6 +50,10 @@ export async function deleteNotification(notificationId: string) {
   await apiDelete(`/api/v1/notifications/${notificationId}`);
 }
 
+export async function sendTestWhatsAppMessage(payload: { phone: string; text: string }) {
+  return apiPost<{ status: string }>("/api/v1/notifications/test", payload);
+}
+
 export async function fetchAttendance(params?: { studentId?: string; date?: string }) {
   const query = new URLSearchParams();
   if (params?.studentId) query.set("student_id", params.studentId);

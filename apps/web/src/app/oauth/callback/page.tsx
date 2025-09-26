@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/api-client";
+import { resolvePostAuthDestination } from "@/lib/auth";
 import type { ApiError } from "@/lib/fetcher";
 
 function resolveErrorMessage(error: unknown): string {
@@ -65,12 +66,16 @@ export default function OAuthCallbackPage() {
 
     apiPost<ExchangeResponse>("/api/v1/auth/google/exchange", { code, state })
       .then(async (response) => {
-        await completeSocialLogin({
+        const session = await completeSocialLogin({
           accessToken: response.access_token,
           googleAccessToken: response.google_access_token ?? null,
           googleTokenExpiresAt: response.google_token_expires_at ?? null
         });
-        router.replace("/panel-progreso");
+        router.replace(
+          resolvePostAuthDestination(session.user, {
+            onboardingCompleted: session.onboarding?.completed ?? false
+          })
+        );
       })
       .catch((err) => {
         setStatus("error");
