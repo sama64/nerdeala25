@@ -74,13 +74,13 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        IMAGE_REF="ghcr.io/${{ github.repository }}/api:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug: Show all available tags from metadata
-        echo "Debug - Metadata tags:"
-        echo '${{ steps.meta-api.outputs.tags }}'
+        # Debug output
+        echo "Setting output: image=$IMAGE_REF"
+        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
 
     # Build Next.js Frontend
     - name: Extract metadata for Web
@@ -112,13 +112,13 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        IMAGE_REF="ghcr.io/${{ github.repository }}/web:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug: Show all available tags from metadata
-        echo "Debug - Metadata tags:"
-        echo '${{ steps.meta-web.outputs.tags }}'
+        # Debug output
+        echo "Setting output: image=$IMAGE_REF"
+        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
 
     # Build WhatsApp Service
     - name: Extract metadata for WhatsApp
@@ -153,13 +153,13 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:sha-${SHORT_SHA}"
+        IMAGE_REF="ghcr.io/${{ github.repository }}/whatsapp:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug: Show all available tags from metadata
-        echo "Debug - Metadata tags:"
-        echo '${{ steps.meta-whatsapp.outputs.tags }}'
+        # Debug output
+        echo "Setting output: image=$IMAGE_REF"
+        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
 
   # Run tests
   test:
