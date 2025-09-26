@@ -269,7 +269,34 @@ jobs:
           docker pull "${WHATSAPP_DOCKER_IMAGE}"
           
           echo "🐳 Stopping existing containers..."
-          docker-compose -f docker-compose.prod.yml down || true
+          
+          # Show what's currently running (for debugging)
+          echo "Current running containers:"
+          docker ps --format "table {{.Names}}\t{{.Ports}}" || true
+          
+          # Force stop all Nerdeala containers and clean up
+          docker-compose -f docker-compose.prod.yml down -v || true
+          
+          # Stop any other containers using our ports
+          echo "Stopping containers on port 3000..."
+          docker ps -q --filter "publish=3000" | xargs -r docker stop || true
+          echo "Stopping containers on port 8000..."
+          docker ps -q --filter "publish=8000" | xargs -r docker stop || true
+          echo "Stopping containers on port 6379..."
+          docker ps -q --filter "publish=6379" | xargs -r docker stop || true
+          echo "Stopping containers on port 3001..."
+          docker ps -q --filter "publish=3001" | xargs -r docker stop || true
+          
+          # Remove all containers with nerdeala in the name (running or stopped)
+          echo "Removing nerdeala containers..."
+          docker ps -aq --filter "name=nerdeala" | xargs -r docker rm -f || true
+          
+          # Clean up networks
+          echo "Cleaning up networks..."
+          docker network rm nerdeala_network 2>/dev/null || true
+          
+          # Wait a moment for ports to be released
+          sleep 2
           
           echo "🐳 Starting production containers..."
           
