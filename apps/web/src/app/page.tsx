@@ -321,18 +321,16 @@ function ButtonTertiary({ href, children }: ButtonLinkProps) {
 
 interface CardProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;
-  as?: keyof JSX.IntrinsicElements;
 }
 
-function Card({ as = "article", className = "", children, ...rest }: CardProps) {
-  const Component = as;
+function Card({ className = "", children, ...rest }: CardProps) {
+  const baseClass = "rounded-2xl border border-neutral-200/70 bg-white shadow-sm";
+  const composedClass = className ? `${baseClass} ${className}` : baseClass;
+
   return (
-    <Component
-      className={`rounded-2xl border border-neutral-200/70 bg-white shadow-sm ${className}`}
-      {...rest}
-    >
+    <article className={composedClass} {...rest}>
       {children}
-    </Component>
+    </article>
   );
 }
 
