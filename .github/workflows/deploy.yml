@@ -8,9 +8,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: nerdeala25/api
-  WEB_IMAGE_NAME: nerdeala25/web
-  WHATSAPP_IMAGE_NAME: nerdeala25/whatsapp
+  API_IMAGE_NAME: ${{ github.repository }}/api
+  WEB_IMAGE_NAME: ${{ github.repository }}/web
+  WHATSAPP_IMAGE_NAME: ${{ github.repository }}/whatsapp
 
 jobs:
   # Build and push Docker images
@@ -249,9 +249,9 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           
           # Establecer las referencias de imagen con el SHA corto
-          export API_DOCKER_IMAGE="ghcr.io/nerdeala25/api:sha-${SHORT_SHA}"
-          export WEB_DOCKER_IMAGE="ghcr.io/nerdeala25/web:sha-${SHORT_SHA}"
-          export WHATSAPP_DOCKER_IMAGE="ghcr.io/nerdeala25/whatsapp:sha-${SHORT_SHA}"
+          export API_DOCKER_IMAGE="ghcr.io/${{ github.repository }}/api:sha-${SHORT_SHA}"
+          export WEB_DOCKER_IMAGE="ghcr.io/${{ github.repository }}/web:sha-${SHORT_SHA}"
+          export WHATSAPP_DOCKER_IMAGE="ghcr.io/${{ github.repository }}/whatsapp:sha-${SHORT_SHA}"
           
           echo "🚀 Starting Nerdeala production deployment..."
           
