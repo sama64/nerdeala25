@@ -140,7 +140,14 @@ async def google_login(request: Request) -> RedirectResponse:
         "client_id": settings.google_client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
-        "scope": "openid email profile",
+        "scope": " ".join(
+            (
+                "openid",
+                "email",
+                "profile",
+                "https://www.googleapis.com/auth/classroom.courses.readonly",
+            )
+        ),
         "state": state,
         "access_type": "offline",
         "prompt": "consent",
@@ -164,6 +171,10 @@ async def google_exchange(
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google OAuth no está configurado")
 
+    google_access_token: str | None = None
+    google_refresh_token: str | None = None
+    google_token_expires_at: datetime | None = None
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             token_response = await client.post(
@@ -179,14 +190,27 @@ async def google_exchange(
             )
             token_response.raise_for_status()
             token_data = token_response.json()
-            access_token = token_data.get("access_token")
+            google_access_token = token_data.get("access_token")
+            google_refresh_token = token_data.get("refresh_token")
+            expires_in_raw = token_data.get("expires_in")
+            expires_in_seconds: int | None = None
+            if isinstance(expires_in_raw, (int, float)):
+                expires_in_seconds = int(expires_in_raw)
+            else:
+                try:
+                    expires_in_seconds = int(str(expires_in_raw))
+                except (TypeError, ValueError):
+                    expires_in_seconds = None
 
-            if not access_token:
+            if expires_in_seconds and expires_in_seconds > 0:
+                google_token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in_seconds)
+
+            if not google_access_token:
                 raise ValueError("missing access token")
 
             userinfo_response = await client.get(
                 GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {access_token}"},
+                headers={"Authorization": f"Bearer {google_access_token}"},
             )
             userinfo_response.raise_for_status()
             profile = userinfo_response.json()
@@ -245,7 +269,13 @@ async def google_exchange(
 
     expires_at = datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expires_minutes)
     token = create_access_token(user.id)
-    return Token(access_token=token, expires_at=expires_at)
+    return Token(
+        access_token=token,
+        expires_at=expires_at,
+        google_access_token=google_access_token,
+        google_refresh_token=google_refresh_token,
+        google_token_expires_at=google_token_expires_at,
+    )
 
 
 @router.post("/verify", response_model=UserRead)

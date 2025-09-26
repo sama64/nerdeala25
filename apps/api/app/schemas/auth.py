@@ -7,6 +7,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_at: datetime
+    google_access_token: str | None = None
+    google_refresh_token: str | None = None
+    google_token_expires_at: datetime | None = None
 
 
 class TokenPayload(BaseModel):

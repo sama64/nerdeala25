@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,15 +14,30 @@ import type { Course } from "@/types";
 type SyncCoursesResult = Awaited<ReturnType<typeof syncClassroomCourses>>;
 
 export default function IntegracionGoogleClassroomPage() {
-  const [accessToken, setAccessToken] = useState<string>("");
+  const { googleAccessToken } = useAuth();
+  const [accessToken, setAccessToken] = useState<string>(googleAccessToken ?? "");
   const [courses, setCourses] = useState<Course[]>([]);
+  const autoSyncTriggered = useRef(false);
 
-  const syncMutation = useMutation<SyncCoursesResult>({
-    mutationFn: () => syncClassroomCourses(accessToken || "demo-token"),
+  useEffect(() => {
+    setAccessToken(googleAccessToken ?? "");
+    autoSyncTriggered.current = false;
+  }, [googleAccessToken]);
+
+  const syncMutation = useMutation<SyncCoursesResult, Error, string>({
+    mutationFn: (token) => syncClassroomCourses(token || "demo-token"),
     onSuccess: (data) => {
       setCourses(data.items);
     }
   });
+
+  useEffect(() => {
+    if (!googleAccessToken || autoSyncTriggered.current) {
+      return;
+    }
+    autoSyncTriggered.current = true;
+    syncMutation.mutate(googleAccessToken);
+  }, [googleAccessToken, syncMutation]);
 
   return (
     <section className="space-y-6">
@@ -33,19 +49,28 @@ export default function IntegracionGoogleClassroomPage() {
       </header>
 
       <Card>
-        <CardHeader title="Sincronizar cursos" subtitle="Ingresa el token de acceso OAuth o utiliza el modo demo" />
+        <CardHeader
+          title="Sincronizar cursos"
+          subtitle={
+            googleAccessToken
+              ? "Tomamos tu token de Google automáticamente. Puedes sincronizarlo directo o reemplazarlo si necesitas otro."
+              : "Ingresa el token de acceso OAuth o deja el campo vacío para usar el modo demo."
+          }
+        />
         <form
           className="flex flex-col gap-4 md:flex-row"
           onSubmit={(event) => {
             event.preventDefault();
-            syncMutation.mutate();
+            syncMutation.mutate(accessToken);
           }}
         >
           <Input
+            type="password"
             placeholder="Token de acceso de Google"
             value={accessToken}
             onChange={(event) => setAccessToken(event.target.value)}
             className="flex-1"
+            autoComplete="off"
           />
           <Button type="submit" disabled={syncMutation.isPending}>
             {syncMutation.isPending ? "Sincronizando..." : "Sincronizar"}

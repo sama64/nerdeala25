@@ -26,6 +26,9 @@ type ExchangeResponse = {
   access_token: string;
   expires_at: string;
   token_type: string;
+  google_access_token?: string | null;
+  google_refresh_token?: string | null;
+  google_token_expires_at?: string | null;
 };
 
 export default function OAuthCallbackPage() {
@@ -62,7 +65,11 @@ export default function OAuthCallbackPage() {
 
     apiPost<ExchangeResponse>("/api/v1/auth/google/exchange", { code, state })
       .then(async (response) => {
-        await completeSocialLogin(response.access_token);
+        await completeSocialLogin({
+          accessToken: response.access_token,
+          googleAccessToken: response.google_access_token ?? null,
+          googleTokenExpiresAt: response.google_token_expires_at ?? null
+        });
         router.replace("/panel-progreso");
       })
       .catch((err) => {
