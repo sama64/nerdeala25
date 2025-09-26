@@ -47,7 +47,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix=main-
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push API image
@@ -71,7 +71,10 @@ jobs:
 
     - name: Extract API image reference
       id: image-api
-      run: echo "image=${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
+      run: |
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:main-${{ github.sha }}"
+        echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
+        echo "🔍 Build: API image will be $IMAGE_REF"
 
     # Build Next.js Frontend
     - name: Extract metadata for Web
@@ -82,7 +85,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix=main-
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Web image
@@ -100,7 +103,10 @@ jobs:
 
     - name: Extract Web image reference
       id: image-web
-      run: echo "image=${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
+      run: |
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:main-${{ github.sha }}"
+        echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
+        echo "🔍 Build: Web image will be $IMAGE_REF"
 
     # Build WhatsApp Service
     - name: Extract metadata for WhatsApp
@@ -111,7 +117,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix=main-
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push WhatsApp image
@@ -132,7 +138,10 @@ jobs:
 
     - name: Extract WhatsApp image reference
       id: image-whatsapp
-      run: echo "image=${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:main-${{ github.sha }}" >> $GITHUB_OUTPUT
+      run: |
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:main-${{ github.sha }}"
+        echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
+        echo "🔍 Build: WhatsApp image will be $IMAGE_REF"
 
   # Run tests
   test:
