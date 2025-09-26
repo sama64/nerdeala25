@@ -1,5 +1,5 @@
-# Multi-stage Dockerfile for Nerdeala FastAPI Backend
-FROM python:3.11-slim AS builder
+# Dockerfile for Nerdeala FastAPI Backend
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -9,27 +9,28 @@ RUN apt-get update && apt-get install -y \
     g++ \
     libffi-dev \
     libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy dependency files
-COPY pyproject.toml ./
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -e .[dev]
-
-# Stage 2: Runtime environment
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy dependency files first for better caching
+COPY pyproject.toml ./
+
+# Install dependencies directly from pyproject.toml
+RUN pip install --no-cache-dir \
+    fastapi==0.109.0 \
+    uvicorn[standard]==0.27.1 \
+    pydantic[email]==2.6.3 \
+    pydantic-settings==2.0.3 \
+    sqlalchemy==2.0.25 \
+    alembic==1.13.1 \
+    psycopg2-binary==2.9.9 \
+    aiosqlite==0.19.0 \
+    passlib[bcrypt]==1.7.4 \
+    python-jose[cryptography]==3.3.0 \
+    python-multipart==0.0.9 \
+    httpx==0.26.0 \
+    redis==5.0.1 \
+    tenacity==8.2.3
 
 # Copy application code
 COPY . .
