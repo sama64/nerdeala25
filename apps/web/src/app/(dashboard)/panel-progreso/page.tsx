@@ -10,18 +10,21 @@ import { Spinner } from "@/components/ui/spinner";
 import { fetchCourses, fetchStudentOverview } from "@/features/dashboard/api";
 import type { Course, StudentOverview } from "@/types";
 
+type CoursesList = Awaited<ReturnType<typeof fetchCourses>>;
+type StudentOverviewList = Awaited<ReturnType<typeof fetchStudentOverview>>;
+
 export default function PanelProgresoPage() {
   const [courseId, setCourseId] = useState<string | undefined>();
 
-  const coursesQuery = useQuery({
+  const coursesQuery = useQuery<CoursesList>({
     queryKey: ["courses"],
     queryFn: fetchCourses
   });
 
-  const studentsQuery = useQuery({
+  const studentsQuery = useQuery<StudentOverviewList>({
     queryKey: ["students", courseId],
     queryFn: () => fetchStudentOverview({ courseId }),
-    keepPreviousData: true
+    placeholderData: (previousData) => previousData
   });
 
   const metrics = studentsQuery.data?.metrics ?? { average_progress: 0, average_attendance: 0 };

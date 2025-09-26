@@ -10,11 +10,13 @@ import { Spinner } from "@/components/ui/spinner";
 import { syncClassroomCourses } from "@/features/dashboard/api";
 import type { Course } from "@/types";
 
+type SyncCoursesResult = Awaited<ReturnType<typeof syncClassroomCourses>>;
+
 export default function IntegracionGoogleClassroomPage() {
   const [accessToken, setAccessToken] = useState<string>("");
   const [courses, setCourses] = useState<Course[]>([]);
 
-  const syncMutation = useMutation({
+  const syncMutation = useMutation<SyncCoursesResult>({
     mutationFn: () => syncClassroomCourses(accessToken || "demo-token"),
     onSuccess: (data) => {
       setCourses(data.items);
@@ -45,15 +47,15 @@ export default function IntegracionGoogleClassroomPage() {
             onChange={(event) => setAccessToken(event.target.value)}
             className="flex-1"
           />
-          <Button type="submit" disabled={syncMutation.isLoading}>
-            {syncMutation.isLoading ? "Sincronizando..." : "Sincronizar"}
+          <Button type="submit" disabled={syncMutation.isPending}>
+            {syncMutation.isPending ? "Sincronizando..." : "Sincronizar"}
           </Button>
         </form>
       </Card>
 
       <Card>
         <CardHeader title="Cursos sincronizados" subtitle="Se muestran los cursos más recientes" />
-        {syncMutation.isLoading ? (
+        {syncMutation.isPending ? (
           <div className="flex justify-center py-10">
             <Spinner label="Importando cursos" />
           </div>

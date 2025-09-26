@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nerdeala-api"
 version = "0.1.0"
 description = "FastAPI backend for Nerdeala Vibeathon"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
   "fastapi==0.109.0",
   "uvicorn[standard]==0.27.1",
@@ -21,8 +21,19 @@ dependencies = [
   "python-multipart==0.0.9",
   "httpx==0.26.0",
   "redis==5.0.1",
-  "tenacity==8.2.3"
+  "tenacity==8.2.3",
+  "maturin~=1.8.1"
 ]
+
+[tool.setuptools]
+package-dir = {"" = ""}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.poetry]
+package-mode = false
 
 [project.optional-dependencies]
 dev = [

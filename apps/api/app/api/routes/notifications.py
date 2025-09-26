@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_verified_user, get_db, require_roles
@@ -79,13 +88,14 @@ async def delete_notification(
     notification_id: str,
     session: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR)),
-) -> None:
+) -> Response:
     notification = await notifications_repo.get(session, notification_id)
     if not notification:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notificación no encontrada")
 
     await notifications_repo.delete(session, notification)
     await notification_hub.broadcast(notification.student_id, {"event": "deleted", "id": notification_id})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.websocket("/stream/{channel}")

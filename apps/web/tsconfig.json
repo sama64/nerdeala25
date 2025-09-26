@@ -38,6 +38,9 @@
       "@/lib/*": [
         "./src/lib/*"
       ],
+      "@/types": [
+        "./src/types"
+      ],
       "@/types/*": [
         "./src/types/*"
       ]

@@ -10,14 +10,19 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { fetchStudentDetail, fetchStudentOverview } from "@/features/dashboard/api";
-import type { NotificationItem, StudentOverview } from "@/types";
+import type { NotificationItem, StudentDetailResponse, StudentOverview } from "@/types";
+
+type StudentOverviewList = Awaited<ReturnType<typeof fetchStudentOverview>>;
 
 export default function DetallesEstudiantePage() {
   const [studentId, setStudentId] = useState<string>("");
 
-  const studentsQuery = useQuery({ queryKey: ["students", "selector"], queryFn: () => fetchStudentOverview() });
+  const studentsQuery = useQuery<StudentOverviewList>({
+    queryKey: ["students", "selector"],
+    queryFn: () => fetchStudentOverview()
+  });
 
-  const detailQuery = useQuery({
+  const detailQuery = useQuery<StudentDetailResponse>({
     queryKey: ["student-detail", studentId],
     queryFn: () => fetchStudentDetail(studentId),
     enabled: Boolean(studentId)

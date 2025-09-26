@@ -24,7 +24,7 @@ apps/
 
 ## Requisitos previos
 
-- **Backend**: Python 3.11+, virtualenv, acceso a SQLite o PostgreSQL.
+- **Backend**: Python 3.11 ó 3.12 (pydantic-core aún no publica wheel estable para 3.13), virtualenv, acceso a SQLite o PostgreSQL.
 - **Frontend**: Node.js 18+, npm o pnpm.
 - **Generales**: OpenSSL para bcrypt, opcionalmente Redis si se habilitan flujos de rate limiting avanzados.
 

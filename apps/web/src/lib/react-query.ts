@@ -2,6 +2,8 @@
 
 import { QueryClient } from "@tanstack/react-query";
 
+import type { ApiError } from "@/lib/fetcher";
+
 let client: QueryClient | null = null;
 
 export function getQueryClient() {
@@ -13,7 +15,12 @@ export function getQueryClient() {
           refetchOnWindowFocus: false,
           retry: (failureCount, error) => {
             if (failureCount >= 3) return false;
-            return !("status" in (error as never)) || (error as never).status >= 500;
+
+            if (typeof error === "object" && error && "statusCode" in error) {
+              return (error as ApiError).statusCode >= 500;
+            }
+
+            return true;
           }
         }
       }

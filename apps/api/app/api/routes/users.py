@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,9 +79,10 @@ async def delete_user_endpoint(
     user_id: str,
     session: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
-) -> None:
+) -> Response:
     user = await users.get(session, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
     await users.delete(session, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

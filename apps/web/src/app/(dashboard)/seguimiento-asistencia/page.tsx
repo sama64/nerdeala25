@@ -13,14 +13,17 @@ import { Spinner } from "@/components/ui/spinner";
 import { fetchAttendance, fetchStudentOverview } from "@/features/dashboard/api";
 import type { AttendanceRecord, StudentOverview } from "@/types";
 
+type StudentOverviewList = Awaited<ReturnType<typeof fetchStudentOverview>>;
+type AttendanceResponse = Awaited<ReturnType<typeof fetchAttendance>>;
+
 export default function SeguimientoAsistenciaPage() {
   const [studentId, setStudentId] = useState<string>("");
   const [date, setDate] = useState<string>("");
 
-  const studentsQuery = useQuery({ queryKey: ["students", "attendance"], queryFn: () => fetchStudentOverview() });
-  const attendanceQuery = useQuery({
+  const studentsQuery = useQuery<StudentOverviewList>({ queryKey: ["students", "attendance"], queryFn: () => fetchStudentOverview() });
+  const attendanceQuery = useQuery<AttendanceResponse>({
     queryKey: ["attendance", studentId, date],
-    queryFn: () => fetchAttendance({ studentId: studentId || undefined, date: date || undefined }),
+    queryFn: () => fetchAttendance({ studentId: studentId || undefined, date: date || undefined })
   });
 
   return (
@@ -50,6 +53,10 @@ export default function SeguimientoAsistenciaPage() {
       ) : attendanceQuery.isError ? (
         <Card>
           <p className="text-sm text-red-600">No se logró obtener el registro de asistencia.</p>
+        </Card>
+      ) : !attendanceQuery.data ? (
+        <Card>
+          <p className="text-sm text-neutral-500">Sin información disponible.</p>
         </Card>
       ) : (
         <div className="space-y-6">

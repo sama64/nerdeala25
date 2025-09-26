@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,9 +164,10 @@ async def delete_student_endpoint(
     student_id: str,
     session: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
-) -> None:
+) -> Response:
     student = await students_repo.get(session, student_id)
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
 
     await students_repo.delete(session, student)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

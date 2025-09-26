@@ -10,13 +10,18 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { fetchStudentDetail, fetchStudentOverview } from "@/features/dashboard/api";
-import type { StudentOverview } from "@/types";
+import type { StudentDetailResponse, StudentOverview } from "@/types";
+
+type StudentOverviewList = Awaited<ReturnType<typeof fetchStudentOverview>>;
 
 export default function EstadoEntregasPage() {
   const [studentId, setStudentId] = useState<string>("");
 
-  const studentsQuery = useQuery({ queryKey: ["students", "deliveries"], queryFn: () => fetchStudentOverview() });
-  const detailQuery = useQuery({
+  const studentsQuery = useQuery<StudentOverviewList>({
+    queryKey: ["students", "deliveries"],
+    queryFn: () => fetchStudentOverview()
+  });
+  const detailQuery = useQuery<StudentDetailResponse>({
     queryKey: ["deliveries", studentId],
     queryFn: () => fetchStudentDetail(studentId),
     enabled: Boolean(studentId)

@@ -20,19 +20,25 @@ import {
 } from "@/features/dashboard/api";
 import type { NotificationItem, StudentOverview } from "@/types";
 
+type StudentOverviewList = Awaited<ReturnType<typeof fetchStudentOverview>>;
+type NotificationsList = Awaited<ReturnType<typeof fetchNotifications>>;
+
 export default function NotificacionesPage() {
   const queryClient = useQueryClient();
   const [studentId, setStudentId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
 
-  const studentsQuery = useQuery({ queryKey: ["students", "for-notifications"], queryFn: () => fetchStudentOverview() });
-  const notificationsQuery = useQuery({
+  const studentsQuery = useQuery<StudentOverviewList>({
+    queryKey: ["students", "for-notifications"],
+    queryFn: () => fetchStudentOverview()
+  });
+  const notificationsQuery = useQuery<NotificationsList>({
     queryKey: ["notifications", studentId],
     queryFn: () => fetchNotifications(studentId || undefined)
   });
 
-  const createMutation = useMutation({
+  const createMutation = useMutation<NotificationItem>({
     mutationFn: () => createNotification({ student_id: studentId, message }),
     onSuccess: () => {
       setMessage("");
@@ -40,13 +46,13 @@ export default function NotificacionesPage() {
     }
   });
 
-  const updateMutation = useMutation({
+  const updateMutation = useMutation<NotificationItem, unknown, { id: string; status: "read" | "sent" | "pending" }>({
     mutationFn: (payload: { id: string; status: "read" | "sent" | "pending" }) =>
       updateNotificationStatus(payload.id, payload.status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] })
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useMutation<void, unknown, string>({
     mutationFn: (id: string) => deleteNotification(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] })
   });
@@ -104,8 +110,8 @@ export default function NotificacionesPage() {
                 className="mt-1"
               />
             </div>
-            <Button type="submit" disabled={!canSend || createMutation.isLoading}>
-              {createMutation.isLoading ? "Enviando..." : "Enviar notificación"}
+            <Button type="submit" disabled={!canSend || createMutation.isPending}>
+              {createMutation.isPending ? "Enviando..." : "Enviar notificación"}
             </Button>
           </form>
         </Card>

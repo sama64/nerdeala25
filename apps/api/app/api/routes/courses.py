@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,9 +85,10 @@ async def delete_course_endpoint(
     course_id: str,
     session: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
-) -> None:
+) -> Response:
     course = await courses.get(session, course_id)
     if not course:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curso no encontrado")
 
     await courses.delete(session, course)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

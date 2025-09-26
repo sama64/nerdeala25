@@ -1,11 +1,67 @@
 from functools import lru_cache
-from typing import List
+from typing import List, Tuple
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources import (
+    DotEnvSettingsSource,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
+)
+
+
+class LenientEnvSettingsSource(EnvSettingsSource):
+    def decode_complex_value(self, field_name, field, value):
+        try:
+            return super().decode_complex_value(field_name, field, value)
+        except ValueError:
+            return value
+
+
+class LenientDotEnvSettingsSource(DotEnvSettingsSource):
+    def decode_complex_value(self, field_name, field, value):
+        try:
+            return super().decode_complex_value(field_name, field, value)
+        except ValueError:
+            return value
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: EnvSettingsSource,
+        dotenv_settings: DotEnvSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        lenient_env = LenientEnvSettingsSource(
+            settings_cls,
+            case_sensitive=env_settings.case_sensitive,
+            env_prefix=env_settings.env_prefix,
+            env_nested_delimiter=getattr(env_settings, "env_nested_delimiter", None),
+        )
+        lenient_dotenv = LenientDotEnvSettingsSource(
+            settings_cls,
+            env_file=dotenv_settings.env_file,
+            env_file_encoding=dotenv_settings.env_file_encoding,
+            case_sensitive=dotenv_settings.case_sensitive,
+            env_prefix=dotenv_settings.env_prefix,
+            env_nested_delimiter=getattr(dotenv_settings, "env_nested_delimiter", None),
+        )
+        return (
+            init_settings,
+            lenient_env,
+            lenient_dotenv,
+            file_secret_settings,
+        )
 
     app_name: str = "Nerdeala Vibeathon API"
     api_v1_prefix: str = "/api/v1"
@@ -24,6 +80,20 @@ class Settings(BaseSettings):
     rate_limit_login_per_minute: int = 5
 
     cors_origins: List[str] = ["http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: List[str] | str | None) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        raw = value.strip()
+        if not raw:
+            return []
+        if raw.startswith("[") and raw.endswith("]"):
+            raw = raw[1:-1]
+        return [item.strip().strip('"').strip("'") for item in raw.split(",") if item.strip()]
 
 
 @lru_cache(maxsize=1)
