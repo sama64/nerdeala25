@@ -8,9 +8,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository }}/api
-  WEB_IMAGE_NAME: ${{ github.repository }}/web
-  WHATSAPP_IMAGE_NAME: ${{ github.repository }}/whatsapp
+  API_IMAGE_NAME: nerdeala25/api
+  WEB_IMAGE_NAME: nerdeala25/web
+  WHATSAPP_IMAGE_NAME: nerdeala25/whatsapp
 
 jobs:
   # Build and push Docker images
@@ -74,13 +74,13 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="ghcr.io/${{ github.repository }}/api:sha-${SHORT_SHA}"
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug output
-        echo "Setting output: image=$IMAGE_REF"
-        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-api.outputs.tags }}'
 
     # Build Next.js Frontend
     - name: Extract metadata for Web
@@ -112,13 +112,13 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="ghcr.io/${{ github.repository }}/web:sha-${SHORT_SHA}"
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug output
-        echo "Setting output: image=$IMAGE_REF"
-        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-web.outputs.tags }}'
 
     # Build WhatsApp Service
     - name: Extract metadata for WhatsApp
@@ -153,22 +153,14 @@ jobs:
       run: |
         # Get the SHA-based tag directly
         SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        IMAGE_REF="ghcr.io/${{ github.repository }}/whatsapp:sha-${SHORT_SHA}"
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.WHATSAPP_IMAGE_NAME }}:sha-${SHORT_SHA}"
         echo "Generated image reference: $IMAGE_REF"
         echo "image=$IMAGE_REF" >> $GITHUB_OUTPUT
         
-        # Debug output
-        echo "Setting output: image=$IMAGE_REF"
-        echo "GITHUB_OUTPUT file: $GITHUB_OUTPUT"
-    
-    # Debug outputs
-    - name: Debug Build Outputs
-      run: |
-        echo "🔍 Verifying outputs from build job:"
-        echo "api-image output: ${{ steps.image-api.outputs.image }}"
-        echo "web-image output: ${{ steps.image-web.outputs.image }}"
-        echo "whatsapp-image output: ${{ steps.image-whatsapp.outputs.image }}"
-        
+        # Debug: Show all available tags from metadata
+        echo "Debug - Metadata tags:"
+        echo '${{ steps.meta-whatsapp.outputs.tags }}'
+
   # Run tests
   test:
     runs-on: ubuntu-latest
@@ -248,110 +240,91 @@ jobs:
       run: |
         scp -P ${{ secrets.VPS_SSH_PORT || '22' }} docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/nerdeala/
 
-    - name: Debug Outputs from Build
+    - name: Deploy to production  
       run: |
-        echo "🔍 Checking outputs from build job:"
-        echo "build.outputs.api-image: ${{ needs.build.outputs.api-image }}"
-        echo "build.outputs.web-image: ${{ needs.build.outputs.web-image }}"
-        echo "build.outputs.whatsapp-image: ${{ needs.build.outputs.whatsapp-image }}"
-    
-    - name: Deploy to production
-      env:
-        API_IMAGE: ${{ needs.build.outputs.api-image }}
-        WEB_IMAGE: ${{ needs.build.outputs.web-image }}
-        WHATSAPP_IMAGE: ${{ needs.build.outputs.whatsapp-image }}
-      run: |
-        echo "🔍 Debug: API_IMAGE=$API_IMAGE"
-        echo "🔍 Debug: WEB_IMAGE=$WEB_IMAGE"  
-        echo "🔍 Debug: WHATSAPP_IMAGE=$WHATSAPP_IMAGE"
-        
-        # Check if variables are empty
-        if [ -z "$API_IMAGE" ] || [ -z "$WEB_IMAGE" ] || [ -z "$WHATSAPP_IMAGE" ]; then
-          echo "❌ ERROR: One or more image references are empty!"
-          echo "API_IMAGE='$API_IMAGE'"
-          echo "WEB_IMAGE='$WEB_IMAGE'"
-          echo "WHATSAPP_IMAGE='$WHATSAPP_IMAGE'"
-          exit 1
-        fi
-        
-        ssh -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+        ssh -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
           set -e
-          export API_DOCKER_IMAGE='$API_IMAGE'
-          export WEB_DOCKER_IMAGE='$WEB_IMAGE'
-          export WHATSAPP_DOCKER_IMAGE='$WHATSAPP_IMAGE'
           
-          echo '🚀 Starting Nerdeala production deployment...'
+          # Calcular el SHA corto en el servidor
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          
+          # Establecer las referencias de imagen con el SHA corto
+          export API_DOCKER_IMAGE="ghcr.io/nerdeala25/api:sha-${SHORT_SHA}"
+          export WEB_DOCKER_IMAGE="ghcr.io/nerdeala25/web:sha-${SHORT_SHA}"
+          export WHATSAPP_DOCKER_IMAGE="ghcr.io/nerdeala25/whatsapp:sha-${SHORT_SHA}"
+          
+          echo "🚀 Starting Nerdeala production deployment..."
           
           cd /opt/nerdeala
           
-          echo '🐳 Logging into GitHub Container Registry...'
-          echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "🐳 Logging into GitHub Container Registry..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
-          echo '🐳 Pulling latest Docker images...'
-          echo \"Debug: API_DOCKER_IMAGE=\$API_DOCKER_IMAGE\"
-          echo \"Debug: WEB_DOCKER_IMAGE=\$WEB_DOCKER_IMAGE\" 
-          echo \"Debug: WHATSAPP_DOCKER_IMAGE=\$WHATSAPP_DOCKER_IMAGE\"
-          docker pull \"\$API_DOCKER_IMAGE\"
-          docker pull \"\$WEB_DOCKER_IMAGE\"
-          docker pull \"\$WHATSAPP_DOCKER_IMAGE\"
+          echo "🐳 Pulling latest Docker images..."
+          echo "Debug: API_DOCKER_IMAGE=${API_DOCKER_IMAGE}"
+          echo "Debug: WEB_DOCKER_IMAGE=${WEB_DOCKER_IMAGE}" 
+          echo "Debug: WHATSAPP_DOCKER_IMAGE=${WHATSAPP_DOCKER_IMAGE}"
+          docker pull "${API_DOCKER_IMAGE}"
+          docker pull "${WEB_DOCKER_IMAGE}"
+          docker pull "${WHATSAPP_DOCKER_IMAGE}"
           
-          echo '🐳 Stopping existing containers...'
+          echo "🐳 Stopping existing containers..."
           docker-compose -f docker-compose.prod.yml down || true
           
-          echo '🐳 Starting production containers...'
+          echo "🐳 Starting production containers..."
           
           # Database configuration
-          export DATABASE_URL=\"${{ secrets.DATABASE_URL }}\"
-          export SYNC_DATABASE_URL=\"${{ secrets.SYNC_DATABASE_URL }}\"
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export SYNC_DATABASE_URL="${{ secrets.SYNC_DATABASE_URL }}"
           
           # JWT configuration
-          export JWT_SECRET_KEY=\"${{ secrets.JWT_SECRET_KEY }}\"
-          export JWT_ACCESS_TOKEN_EXPIRES_MINUTES=\"${{ secrets.JWT_ACCESS_TOKEN_EXPIRES_MINUTES }}\"
+          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+          export JWT_ACCESS_TOKEN_EXPIRES_MINUTES="${{ secrets.JWT_ACCESS_TOKEN_EXPIRES_MINUTES }}"
           
           # CORS configuration
-          export CORS_ORIGINS=\"${{ secrets.CORS_ORIGINS }}\"
+          export CORS_ORIGINS="${{ secrets.CORS_ORIGINS }}"
           
           # API configuration
-          export NEXT_PUBLIC_API_BASE_URL=\"${{ secrets.NEXT_PUBLIC_API_BASE_URL }}\"
+          export NEXT_PUBLIC_API_BASE_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
           
           # Google Classroom configuration
-          export CLASSROOM_API_BASE_URL=\"${{ secrets.CLASSROOM_API_BASE_URL }}\"
-          export CLASSROOM_SERVICE_ACCOUNT_FILE=\"${{ secrets.CLASSROOM_SERVICE_ACCOUNT_FILE }}\"
-          export CLASSROOM_SERVICE_ACCOUNT_PATH=\"${{ secrets.CLASSROOM_SERVICE_ACCOUNT_PATH }}\"
+          export CLASSROOM_API_BASE_URL="${{ secrets.CLASSROOM_API_BASE_URL }}"
+          export CLASSROOM_SERVICE_ACCOUNT_FILE="${{ secrets.CLASSROOM_SERVICE_ACCOUNT_FILE }}"
+          export CLASSROOM_SERVICE_ACCOUNT_PATH="${{ secrets.CLASSROOM_SERVICE_ACCOUNT_PATH }}"
           
           # WhatsApp configuration
-          export WHATSAPP_QUEUE=\"${{ secrets.WHATSAPP_QUEUE }}\"
-          export WHATSAPP_MAX_RETRIES=\"${{ secrets.WHATSAPP_MAX_RETRIES }}\"
-          export WHATSAPP_CLIENT_ID=\"${{ secrets.WHATSAPP_CLIENT_ID }}\"
+          export WHATSAPP_QUEUE="${{ secrets.WHATSAPP_QUEUE }}"
+          export WHATSAPP_MAX_RETRIES="${{ secrets.WHATSAPP_MAX_RETRIES }}"
+          export WHATSAPP_CLIENT_ID="${{ secrets.WHATSAPP_CLIENT_ID }}"
           
           # Debug settings
-          export DEBUG=\"false\"
+          export DEBUG="false"
           
-          echo 'Debug: Environment variables set, starting containers...'
+          echo "Debug: Environment variables set, starting containers..."
           docker-compose -f docker-compose.prod.yml up -d
           
-          echo '⏳ Waiting for services to start...'
+          echo "⏳ Waiting for services to start..."
           sleep 60
           
-          echo '🔍 Checking container status...'
+          echo "🔍 Checking container status..."
           docker-compose -f docker-compose.prod.yml ps
           
-          echo '🏥 Performing health checks...'
+          echo "🏥 Performing health checks..."
           for i in {1..5}; do
             if curl -f http://127.0.0.1:8000/health && curl -f http://127.0.0.1:3000/api/health; then
-              echo '✅ Health checks passed on attempt \$i'
+              echo "✅ Health checks passed on attempt $i"
               break
             else
-              echo '⏳ Health check failed on attempt \$i, retrying...'
+              echo "⏳ Health check failed on attempt $i, retrying..."
               sleep 15
             fi
           done
           
-          echo '🧹 Cleaning up old Docker images...'
+          echo "🧹 Cleaning up old Docker images..."
           docker image prune -f || true
           
-          echo '✅ Nerdeala production deployment successful!'
-        "
+          echo "✅ Nerdeala production deployment successful!"
+        '
 
     - name: Post-deployment health check
       run: |
