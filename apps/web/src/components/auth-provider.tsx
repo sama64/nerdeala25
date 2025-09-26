@@ -140,8 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(response.access_token);
       setGoogleAccessToken(null);
       setGoogleTokenExpiresAt(null);
+      storeAuthToken(response.access_token);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_KEY, response.access_token);
         window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
         window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
       }
