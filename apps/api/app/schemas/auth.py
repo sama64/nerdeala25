@@ -34,3 +34,8 @@ class PasswordRecoveryRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     token: str = Field(..., min_length=10)
     new_password: str = Field(..., min_length=8)
+
+
+class GoogleExchangeRequest(BaseModel):
+    code: str = Field(..., min_length=1)
+    state: str = Field(..., min_length=10)

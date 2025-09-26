@@ -46,7 +46,10 @@ async def create(session: AsyncSession, payload: UserCreate) -> User:
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise ValueError("El correo ya está registrado") from exc
+        message = "El correo ya está registrado"
+        if exc.orig:
+            message = f"{message}: {exc.orig}"
+        raise ValueError(message) from exc
     await session.refresh(user)
     return user
 

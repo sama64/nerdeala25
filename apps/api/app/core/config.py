@@ -79,7 +79,11 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     rate_limit_login_per_minute: int = 5
 
-    cors_origins: List[str] = ["http://localhost:3000"]
+    cors_origins: List[str] = ["http://localhost:5001", "http://127.0.0.1:5001"]
+
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_oauth_redirect_uri: str = "http://localhost:5001/oauth/callback"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
