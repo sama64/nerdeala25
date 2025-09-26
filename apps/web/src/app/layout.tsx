@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: "Nerdeala Vibeathon",
   description:
     "Plataforma educativa para integrar Google Classroom, seguimiento de progreso y analíticas en tiempo real.",
