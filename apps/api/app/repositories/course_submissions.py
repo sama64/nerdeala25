@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
+import json
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,9 +29,11 @@ async def upsert(
     turned_in_at: datetime | None,
     assigned_grade: float | None,
     draft_grade: float | None,
+    attachments: list[dict[str, Any]] | None,
     updated_time: datetime | None,
 ) -> CourseSubmission:
     submission = await get(session, submission_id)
+    encoded_attachments = json.dumps(attachments) if attachments is not None else None
 
     if submission is None:
         submission = CourseSubmission(
@@ -44,6 +47,7 @@ async def upsert(
             turned_in_at=turned_in_at,
             assigned_grade=assigned_grade,
             draft_grade=draft_grade,
+            attachments=encoded_attachments,
             updated_time=updated_time,
         )
         session.add(submission)
@@ -57,6 +61,7 @@ async def upsert(
         submission.turned_in_at = turned_in_at
         submission.assigned_grade = assigned_grade
         submission.draft_grade = draft_grade
+        submission.attachments = encoded_attachments
         submission.updated_time = updated_time
 
     await session.flush()

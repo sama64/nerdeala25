@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String, Text
 
 from app.db.session import Base
 
@@ -18,6 +18,7 @@ class CourseSubmission(Base):
     turned_in_at = Column(DateTime, nullable=True)
     assigned_grade = Column(Float, nullable=True)
     draft_grade = Column(Float, nullable=True)
+    attachments = Column(Text, nullable=True)
     updated_time = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

@@ -22,7 +22,11 @@ from app.schemas.student import (
 )
 from app.services.analytics import summarize_attendance, summarize_notifications, summarize_students
 
+import logging
+
 router = APIRouter(prefix="/students", tags=["students"])
+
+logger = logging.getLogger("nerdeala.students")
 
 
 @router.get("/", response_model=dict)
@@ -45,6 +49,8 @@ async def list_students_endpoint(
     items = await students_repo.list_students(
         session, course_id=target_course_id, skip=skip, limit=size
     )
+
+    logger.info(f"Found {len(items)} students for course_id={target_course_id}")
 
     enriched: list[dict] = []
     for student in items:

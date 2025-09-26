@@ -157,6 +157,7 @@ async def google_login(request: Request) -> RedirectResponse:
                 "https://www.googleapis.com/auth/classroom.profile.emails",
                 "https://www.googleapis.com/auth/classroom.profile.photos",
                 "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+                "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
             )
         ),
         "state": state,

@@ -342,6 +342,40 @@ app.post('/send', async (req, res) => {
   }
 });
 
+// Backend API compatibility endpoint
+app.post('/api/whatsapp/send-text', async (req, res) => {
+  try {
+    const { to, text } = req.body;
+    
+    if (!to || !text) {
+      return res.status(400).json({ error: 'Missing required fields: to, text' });
+    }
+
+    // Convert to our internal job format
+    const job = {
+      id: `api-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      recipient: {
+        phone: to,
+        name: "API User"
+      },
+      message: {
+        type: "text",
+        text: text
+      },
+      metadata: {
+        retries: 0,
+        initiatedBy: "nerdeala-api",
+        priority: "normal"
+      }
+    };
+
+    await handleJobPayload(JSON.stringify(job));
+    res.json({ status: 'sent', jobId: job.id });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.post('/clear-session', async (req, res) => {
   try {
     // Stop client if active
@@ -387,6 +421,7 @@ app.listen(PORT, () => {
   log(`   GET  http://localhost:${PORT}/qr`);
   log(`   GET  http://localhost:${PORT}/session-info`);
   log(`   POST http://localhost:${PORT}/send`);
+  log(`   POST http://localhost:${PORT}/api/whatsapp/send-text`);
   log(`   POST http://localhost:${PORT}/clear-session`);
   log(`redis queue: ${queueName}`);
   log(`failed queue: ${failedQueueName}`);

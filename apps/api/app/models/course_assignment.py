@@ -19,5 +19,7 @@ class CourseAssignment(Base):
     max_points = Column(Float, nullable=True)
     created_time = Column(DateTime, nullable=True)
     updated_time = Column(DateTime, nullable=True)
+    assignee_mode = Column(String(50), nullable=True)
+    assignee_user_ids = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

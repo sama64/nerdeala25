@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     google_client_secret: str | None = None
     google_oauth_redirect_uri: str = "http://localhost:5001/oauth/callback"
 
+    classroom_scheduler_user_id: str | None = None
+
+    wa_http_base_url: str | None = None
+    wa_http_api_key: str | None = None
+    wa_http_timeout: float = 20.0
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: List[str] | str | None) -> List[str]:

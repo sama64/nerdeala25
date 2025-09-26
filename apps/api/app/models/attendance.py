@@ -18,9 +18,11 @@ class Attendance(Base):
 
     id = Column(String, primary_key=True)
     student_id = Column(String, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id = Column(String, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     date = Column(Date, default=date.today, nullable=False)
     status = Column(SqlEnum(AttendanceStatus), nullable=False)
     notes = Column(Text, nullable=True)
     recorded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     student = relationship("Student", back_populates="attendance_records")
+    course = relationship("Course")

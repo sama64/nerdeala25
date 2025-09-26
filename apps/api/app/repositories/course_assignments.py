@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Optional
+import json
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,8 +31,14 @@ async def upsert(
     max_points: float | None,
     created_time: datetime | None,
     updated_time: datetime | None,
+    assignee_mode: str | None,
+    assignee_user_ids: list[str] | None,
 ) -> CourseAssignment:
     assignment = await get(session, assignment_id)
+
+    encoded_assignees = (
+        json.dumps(assignee_user_ids) if assignee_user_ids is not None else None
+    )
 
     if assignment is None:
         assignment = CourseAssignment(
@@ -46,6 +53,8 @@ async def upsert(
             max_points=max_points,
             created_time=created_time,
             updated_time=updated_time,
+            assignee_mode=assignee_mode,
+            assignee_user_ids=encoded_assignees,
         )
         session.add(assignment)
     else:
@@ -58,6 +67,8 @@ async def upsert(
         assignment.max_points = max_points
         assignment.created_time = created_time
         assignment.updated_time = updated_time
+        assignment.assignee_mode = assignee_mode
+        assignment.assignee_user_ids = encoded_assignees
 
     await session.flush()
     return assignment

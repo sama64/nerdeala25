@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,8 +29,11 @@ from app.schemas.course import CourseCreate, CourseRead, CourseUpdate
 from app.schemas.user import UserUpdate
 from app.services.google_classroom import ClassroomIntegrationError, google_classroom_service
 from app.services.google_oauth import GoogleOAuthError, ensure_google_access_token
+from app.services.google_sync import sync_delta_courses, sync_full_metadata
 
 router = APIRouter(prefix="/classroom", tags=["classroom"])
+
+logger = logging.getLogger("nerdeala.api.classroom")
 
 
 @router.get("/courses", response_model=dict)
@@ -190,10 +196,28 @@ async def sync_classroom_courses(
                 max_points=assignment.max_points,
                 created_time=assignment.created_time,
                 updated_time=assignment.updated_time,
+                assignee_mode=assignment.assignee_mode,
+                assignee_user_ids=assignment.assignee_user_ids,
             )
             seen_assignment_ids.add(record.id)
             course_assignments_out.append(
-                CourseAssignmentRead.model_validate(record).model_dump()
+                CourseAssignmentRead(
+                    id=record.id,
+                    course_id=record.course_id,
+                    title=record.title,
+                    description=record.description,
+                    work_type=record.work_type,
+                    state=record.state,
+                    due_at=record.due_at,
+                    alternate_link=record.alternate_link,
+                    max_points=record.max_points,
+                    created_time=record.created_time,
+                    updated_time=record.updated_time,
+                    assignee_mode=record.assignee_mode,
+                    assignee_user_ids=json.loads(record.assignee_user_ids)
+                    if record.assignee_user_ids
+                    else None,
+                ).model_dump()
             )
 
         for assignment in existing_assignments:
@@ -218,11 +242,27 @@ async def sync_classroom_courses(
                 turned_in_at=submission.turned_in_at,
                 assigned_grade=submission.assigned_grade,
                 draft_grade=submission.draft_grade,
+                attachments=submission.attachments,
                 updated_time=submission.updated_time,
             )
             seen_submission_ids.add(record.id)
             course_submissions_out.append(
-                CourseSubmissionRead.model_validate(record).model_dump()
+                CourseSubmissionRead(
+                    id=record.id,
+                    course_id=record.course_id,
+                    coursework_id=record.coursework_id,
+                    google_user_id=record.google_user_id,
+                    matched_user_id=record.matched_user_id,
+                    state=record.state,
+                    late=record.late,
+                    turned_in_at=record.turned_in_at,
+                    assigned_grade=record.assigned_grade,
+                    draft_grade=record.draft_grade,
+                    attachments=json.loads(record.attachments)
+                    if record.attachments
+                    else None,
+                    updated_time=record.updated_time,
+                ).model_dump()
             )
 
         for submission in existing_submissions:
@@ -247,6 +287,46 @@ async def sync_classroom_courses(
         "assignments": assignments_payload,
         "submissions": submissions_payload,
     }
+
+
+@router.post("/sync/delta", response_model=dict)
+async def trigger_delta_sync(
+    token: str = Header(default="", alias="X-Goog-Access-Token"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+) -> dict:
+    token = await _resolve_google_token(token, session, current_user)
+
+    try:
+        result = await sync_delta_courses(token)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("No se pudo ejecutar el delta sync")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo ejecutar el delta sync",
+        ) from exc
+
+    return {"status": "ok", "result": result}
+
+
+@router.post("/sync/full", response_model=dict)
+async def trigger_full_sync(
+    token: str = Header(default="", alias="X-Goog-Access-Token"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+) -> dict:
+    token = await _resolve_google_token(token, session, current_user)
+
+    try:
+        result = await sync_full_metadata(token)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("No se pudo ejecutar el full sync")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo ejecutar el full sync",
+        ) from exc
+
+    return {"status": "ok", "result": result}
 
 
 @router.get("/{course_id}/participants", response_model=dict)

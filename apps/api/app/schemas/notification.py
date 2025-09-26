@@ -26,3 +26,8 @@ class NotificationRead(NotificationBase):
 
     class Config:
         from_attributes = True
+
+
+class NotificationTestRequest(BaseModel):
+    phone: str = Field(..., min_length=5, max_length=32)
+    text: str = Field(..., min_length=1, max_length=1024)

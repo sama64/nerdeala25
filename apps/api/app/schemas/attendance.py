@@ -8,6 +8,7 @@ from app.models.attendance import AttendanceStatus
 
 class AttendanceBase(BaseModel):
     student_id: str
+    course_id: str
     date: date
     status: AttendanceStatus
     notes: Optional[str] = Field(default=None, max_length=512)

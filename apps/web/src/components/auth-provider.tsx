@@ -84,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setGoogleTokenExpiresAt(null);
     setUser(null);
     setOnboardingState(null);
+    removeAuthToken();
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(STORAGE_KEY);
       window.localStorage.removeItem(GOOGLE_TOKEN_STORAGE_KEY);
       window.localStorage.removeItem(GOOGLE_TOKEN_EXP_STORAGE_KEY);
     }
@@ -172,8 +172,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGoogleAccessToken(googleToken);
       setGoogleTokenExpiresAt(googleExpiry);
 
+      storeAuthToken(accessToken);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_KEY, accessToken);
         if (googleToken) {
           window.localStorage.setItem(GOOGLE_TOKEN_STORAGE_KEY, googleToken);
         } else {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -36,14 +36,16 @@ class ClassroomAssignment:
     course_id: str
     coursework_id: str
     title: str
-    description: str | None
-    work_type: str | None
-    state: str | None
-    due_at: datetime | None
-    alternate_link: str | None
-    max_points: float | None
-    created_time: datetime | None
-    updated_time: datetime | None
+    description: str | None = None
+    work_type: str | None = None
+    state: str | None = None
+    due_at: datetime | None = None
+    alternate_link: str | None = None
+    max_points: float | None = None
+    created_time: datetime | None = None
+    updated_time: datetime | None = None
+    assignee_mode: str | None = None
+    assignee_user_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -52,12 +54,13 @@ class ClassroomSubmission:
     course_id: str
     coursework_id: str
     google_user_id: str
-    state: str | None
-    late: bool
-    turned_in_at: datetime | None
-    assigned_grade: float | None
-    draft_grade: float | None
-    updated_time: datetime | None
+    state: str | None = None
+    late: bool = False
+    turned_in_at: datetime | None = None
+    assigned_grade: float | None = None
+    draft_grade: float | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    updated_time: datetime | None = None
 
 
 class ClassroomIntegrationError(RuntimeError):
@@ -198,6 +201,16 @@ class GoogleClassroomService:
             created_time = _parse_datetime(coursework.get("creationTime"))
             updated_time = _parse_datetime(coursework.get("updateTime"))
             due_at = _parse_due_datetime(coursework.get("dueDate"), coursework.get("dueTime"))
+            assignee_mode_raw = coursework.get("assigneeMode")
+            assignee_mode = assignee_mode_raw if isinstance(assignee_mode_raw, str) else "ALL_STUDENTS"
+            individual = coursework.get("individualStudentsOptions")
+            assignee_user_ids: list[str] = []
+            if isinstance(individual, dict):
+                ids = individual.get("studentIds")
+                if isinstance(ids, list):
+                    assignee_user_ids = [str(item) for item in ids if isinstance(item, (str, int))]
+            if assignee_mode == "ALL_STUDENTS":
+                assignee_user_ids = []
 
             assignments.append(
                 ClassroomAssignment(
@@ -212,6 +225,8 @@ class GoogleClassroomService:
                     max_points=float(max_points) if isinstance(max_points, (int, float)) else None,
                     created_time=created_time,
                     updated_time=updated_time,
+                    assignee_mode=assignee_mode,
+                    assignee_user_ids=assignee_user_ids,
                 )
             )
 
@@ -239,6 +254,7 @@ class GoogleClassroomService:
             draft_grade = submission.get("draftGrade")
             updated_time = _parse_datetime(submission.get("updateTime"))
             turned_in_at = _extract_turned_in_at(submission)
+            attachments = _extract_submission_attachments(submission)
 
             parsed.append(
                 ClassroomSubmission(
@@ -255,6 +271,7 @@ class GoogleClassroomService:
                     draft_grade=float(draft_grade)
                     if isinstance(draft_grade, (int, float))
                     else None,
+                    attachments=attachments,
                     updated_time=updated_time,
                 )
             )
@@ -314,21 +331,30 @@ class GoogleClassroomService:
 
     async def _list_coursework(self, token: str, course_id: str) -> list[dict[str, Any]]:
         endpoint = f"/courses/{course_id}/courseWork"
-        params = {
-            "fields": "courseWork(id,title,description,workType,state,dueDate,dueTime,alternateLink,maxPoints,creationTime,updateTime),nextPageToken"
+        params: dict[str, Any] | None = {
+            "fields": "courseWork(id,title,description,workType,state,dueDate,dueTime,alternateLink,maxPoints,creationTime,updateTime,assigneeMode,individualStudentsOptions/studentIds),nextPageToken"
         }
         items: list[dict[str, Any]] = []
         page_token: str | None = None
 
         while True:
+            query_params = (params.copy() if params else {})
             if page_token:
-                params["pageToken"] = page_token
+                query_params["pageToken"] = page_token
             try:
-                payload = await self._request("GET", endpoint, token, params=params)
+                payload = await self._request("GET", endpoint, token, params=query_params or None)
             except RetryError as exc:
                 last = exc.last_attempt.exception()
-                if isinstance(last, httpx.HTTPStatusError) and last.response.status_code == 403:
-                    return []
+                if isinstance(last, httpx.HTTPStatusError):
+                    status = last.response.status_code
+                    if status == 403:
+                        return []
+                    if status == 400 and params is not None:
+                        # Retry without the custom fields projection.
+                        params = None
+                        page_token = None
+                        items = []
+                        continue
                 raise
             courseworks = payload.get("courseWork") if isinstance(payload, dict) else None
             if isinstance(courseworks, list):
@@ -343,21 +369,29 @@ class GoogleClassroomService:
         self, token: str, course_id: str
     ) -> list[dict[str, Any]]:
         endpoint = f"/courses/{course_id}/courseWork/-/studentSubmissions"
-        params = {
-            "fields": "studentSubmissions(id,courseWorkId,userId,state,late,updateTime,assignedGrade,draftGrade,submissionHistory),nextPageToken"
+        params: dict[str, Any] | None = {
+            "fields": "studentSubmissions(id,courseWorkId,userId,state,late,updateTime,assignedGrade,draftGrade,submissionHistory,assignmentSubmission(attachments)),nextPageToken"
         }
         items: list[dict[str, Any]] = []
         page_token: str | None = None
 
         while True:
+            query_params = (params.copy() if params else {})
             if page_token:
-                params["pageToken"] = page_token
+                query_params["pageToken"] = page_token
             try:
-                payload = await self._request("GET", endpoint, token, params=params)
+                payload = await self._request("GET", endpoint, token, params=query_params or None)
             except RetryError as exc:
                 last = exc.last_attempt.exception()
-                if isinstance(last, httpx.HTTPStatusError) and last.response.status_code == 403:
-                    return []
+                if isinstance(last, httpx.HTTPStatusError):
+                    status = last.response.status_code
+                    if status == 403:
+                        return []
+                    if status == 400 and params is not None:
+                        params = None
+                        page_token = None
+                        items = []
+                        continue
                 raise
             submissions = payload.get("studentSubmissions") if isinstance(payload, dict) else None
             if isinstance(submissions, list):
@@ -562,3 +596,15 @@ def _extract_turned_in_at(submission: dict[str, Any]) -> datetime | None:
                 if parsed:
                     return parsed
     return None
+
+
+def _extract_submission_attachments(submission: dict[str, Any]) -> list[dict[str, Any]]:
+    assignment_submission = submission.get("assignmentSubmission")
+    attachments: list[dict[str, Any]] = []
+    if isinstance(assignment_submission, dict):
+        raw_attachments = assignment_submission.get("attachments")
+        if isinstance(raw_attachments, list):
+            for attachment in raw_attachments:
+                if isinstance(attachment, dict):
+                    attachments.append(attachment)
+    return attachments

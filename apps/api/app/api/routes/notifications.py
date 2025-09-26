@@ -16,8 +16,14 @@ from app.api.deps import get_current_verified_user, get_db, require_roles
 from app.models.notification import Notification, NotificationStatus
 from app.models.user import User, UserRole
 from app.repositories import notifications as notifications_repo
-from app.schemas.notification import NotificationCreate, NotificationRead, NotificationUpdate
+from app.schemas.notification import (
+    NotificationCreate,
+    NotificationRead,
+    NotificationTestRequest,
+    NotificationUpdate,
+)
 from app.services.notifications import notification_hub
+from app.services.notifications.http_wa import get_notifier
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -96,6 +102,76 @@ async def delete_notification(
     await notifications_repo.delete(session, notification)
     await notification_hub.broadcast(notification.student_id, {"event": "deleted", "id": notification_id})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/test", response_model=dict)
+async def send_test_notification(
+    payload: NotificationTestRequest,
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TEACHER)),
+) -> dict:
+    notifier = get_notifier()
+    await notifier.send_message(payload.phone, payload.text)
+    return {"status": "ok"}
+
+
+@router.post("/test-assignment", response_model=dict)
+async def send_test_assignment_notification(
+    course_id: str,
+    assignment_title: str = "Tarea de Prueba",
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TEACHER)),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Test endpoint for new assignment notifications"""
+    from app.repositories import course_participants as participants_repo
+    from app.repositories import user_contacts as user_contacts_repo
+    from app.models.course_participant import ParticipantRole
+    from app.services.notifications.http_wa import get_notifier
+    
+    notifier = get_notifier()
+    
+    # Get all participants in the course
+    all_participants = await participants_repo.list_for_course(session, course_id)
+    # Filter only students
+    participants = [p for p in all_participants if p.role == ParticipantRole.STUDENT]
+    
+    if not participants:
+        return {"status": "no_students", "message": "No students found in course"}
+    
+    # Get phone numbers for matched users
+    matched_user_ids = [p.matched_user_id for p in participants if p.matched_user_id]
+    if not matched_user_ids:
+        return {"status": "no_phones", "message": "No students with phone numbers found"}
+        
+    phone_map = await user_contacts_repo.get_phone_map(session, matched_user_ids)
+    
+    # Create test message
+    message = (
+        f"📚 *Nueva tarea en Classroom* (PRUEBA)\n\n"
+        f"📝 {assignment_title}\n"
+        f"📅 Vencimiento: 30/12/2024 a las 23:59\n"
+        f"🏆 Puntos: 100\n\n"
+        f"👀 Revisá los detalles en tu panel de Scholaris o directamente en Google Classroom.\n\n"
+        f"¡No te olvides de entregar a tiempo! 🚀\n\n"
+        f"*Este es un mensaje de prueba.*"
+    )
+    
+    # Send to all students with phone numbers
+    notifications_sent = 0
+    for participant in participants:
+        if participant.matched_user_id and participant.matched_user_id in phone_map:
+            phone = phone_map[participant.matched_user_id]
+            try:
+                await notifier.send_message(phone, message)
+                notifications_sent += 1
+            except Exception as e:
+                logger.exception("Error sending test notification to %s", phone)
+    
+    return {
+        "status": "sent", 
+        "notifications_sent": notifications_sent,
+        "total_students": len(participants),
+        "students_with_phones": len([p for p in participants if p.matched_user_id in phone_map])
+    }
 
 
 @router.websocket("/stream/{channel}")

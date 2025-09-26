@@ -150,17 +150,30 @@ export function useDemoModeProvider() {
     (window as any).enableDemoMode = () => {
       setIsDemoMode(true);
       localStorage.setItem('nerdeala-demo-mode', 'true');
-      console.log('Demo mode enabled from console');
+      console.log('✅ Demo mode enabled from console');
     };
     
     (window as any).disableDemoMode = () => {
       setIsDemoMode(false);
       localStorage.setItem('nerdeala-demo-mode', 'false');
-      console.log('Demo mode disabled from console');
+      console.log('❌ Demo mode disabled from console');
+    };
+    
+    (window as any).setDemoRole = (role: string) => {
+      setDemoRoleState(role as any);
+      localStorage.setItem('nerdeala-demo-role', role);
+      console.log('🎭 Demo role changed to:', role);
     };
     
     (window as any).checkDemoMode = () => {
-      console.log('Demo mode status:', { isDemoMode, localStorage: localStorage.getItem('nerdeala-demo-mode') });
+      console.log('🔍 Demo mode status:', { 
+        isDemoMode, 
+        demoRole,
+        localStorage: {
+          mode: localStorage.getItem('nerdeala-demo-mode'),
+          role: localStorage.getItem('nerdeala-demo-role')
+        }
+      });
     };
   }
 

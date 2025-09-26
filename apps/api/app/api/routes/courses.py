@@ -23,9 +23,11 @@ async def list_courses_endpoint(
 ) -> dict:
     skip = (page - 1) * size
     target_teacher_id = teacher_id
-    if current_user.role == UserRole.TEACHER:
-        target_teacher_id = current_user.id
-
+    
+    # Nueva lógica: Mostrar TODOS los cursos disponibles independientemente del rol
+    # El filtro teacher_id solo se aplica si se pasa explícitamente como parámetro
+    # Esto permite que cualquier usuario vea todos los cursos sincronizados
+    
     items = await courses.list_courses(session, teacher_id=target_teacher_id, skip=skip, limit=size)
 
     total_query = select(func.count()).select_from(Course)
@@ -59,9 +61,7 @@ async def retrieve_course(
     if not course:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curso no encontrado")
 
-    if current_user.role == UserRole.TEACHER and course.teacher_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Contenido no autorizado")
-
+    # Permitir acceso a todos los usuarios - sin restricciones por rol
     return CourseRead.model_validate(course)
 
 
