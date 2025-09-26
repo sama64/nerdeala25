@@ -214,9 +214,21 @@ jobs:
         scp -P ${{ secrets.VPS_SSH_PORT || '22' }} docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/nerdeala/
 
     - name: Deploy to production
+      env:
+        API_IMAGE: ${{ needs.build.outputs.api-image }}
+        WEB_IMAGE: ${{ needs.build.outputs.web-image }}
+        WHATSAPP_IMAGE: ${{ needs.build.outputs.whatsapp-image }}
       run: |
+        echo "🔍 Debug: API_IMAGE=$API_IMAGE"
+        echo "🔍 Debug: WEB_IMAGE=$WEB_IMAGE"
+        echo "🔍 Debug: WHATSAPP_IMAGE=$WHATSAPP_IMAGE"
+        
         ssh -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
           set -e
+          export API_IMAGE='$API_IMAGE'
+          export WEB_IMAGE='$WEB_IMAGE'
+          export WHATSAPP_IMAGE='$WHATSAPP_IMAGE'
+          
           echo '🚀 Starting Nerdeala production deployment...'
           
           cd /opt/nerdeala
@@ -225,19 +237,22 @@ jobs:
           echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           echo '🐳 Pulling latest Docker images...'
-          docker pull ${{ needs.build.outputs.api-image }}
-          docker pull ${{ needs.build.outputs.web-image }}
-          docker pull ${{ needs.build.outputs.whatsapp-image }}
+          echo \"Debug: API_IMAGE=\$API_IMAGE\"
+          echo \"Debug: WEB_IMAGE=\$WEB_IMAGE\" 
+          echo \"Debug: WHATSAPP_IMAGE=\$WHATSAPP_IMAGE\"
+          docker pull \"\$API_IMAGE\"
+          docker pull \"\$WEB_IMAGE\"
+          docker pull \"\$WHATSAPP_IMAGE\"
           
           echo '🐳 Stopping existing containers...'
           docker-compose -f docker-compose.prod.yml down || true
           
           echo '🐳 Starting production containers...'
           
-          # Export environment variables
-          export API_DOCKER_IMAGE=\"${{ needs.build.outputs.api-image }}\"
-          export WEB_DOCKER_IMAGE=\"${{ needs.build.outputs.web-image }}\"
-          export WHATSAPP_DOCKER_IMAGE=\"${{ needs.build.outputs.whatsapp-image }}\"
+          # Export environment variables for docker-compose
+          export API_DOCKER_IMAGE=\"\$API_IMAGE\"
+          export WEB_DOCKER_IMAGE=\"\$WEB_IMAGE\"
+          export WHATSAPP_DOCKER_IMAGE=\"\$WHATSAPP_IMAGE\"
           
           # Database configuration
           export DATABASE_URL=\"${{ secrets.DATABASE_URL }}\"
