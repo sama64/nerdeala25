@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 # Test configuration - modify these values for your tests
-TEST_PHONE = "+5491170600371"  # Change this to your test phone number
+TEST_PHONE = "+5491122334455"  # Change this to your test phone number
 TEST_MESSAGE = "🚀 ekisde"
 COMPOSE_FILE = "docker-compose.whatsapp.yml"
 QUEUE_NAME = "whatsapp:pending"
