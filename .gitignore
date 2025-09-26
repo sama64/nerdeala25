@@ -1,0 +1,20 @@
+# Node
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.turbo/
+apps/web/package-lock.json
+apps/web/pnpm-lock.yaml
+apps/web/yarn.lock
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+/apps/api/nerdeala.db
+
+# Editors
+.vscode/
+.idea/
+.DS_Store
