@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
@@ -31,7 +31,7 @@ type ExchangeResponse = {
   google_token_expires_at?: string | null;
 };
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { completeSocialLogin } = useAuth();
@@ -92,5 +92,20 @@ export default function OAuthCallbackPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 via-white to-success/10 px-4">
+        <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-8 text-center shadow-lg">
+          <h1 className="text-2xl font-semibold text-neutral-900">Cargando...</h1>
+          <p className="text-sm text-neutral-500">Procesando autenticación...</p>
+        </div>
+      </div>
+    }>
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }
