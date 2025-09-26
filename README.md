@@ -20,6 +20,15 @@ apps/
      ├─ src/components # UI reusable y providers de contexto
      ├─ src/features   # Lógica de datos (React Query + API client)
      └─ src/lib        # Utilidades compartidas (fetcher, env, api client)
+
+services/
+ └─ whatsapp/          # WhatsApp notification service
+     ├─ index.js       # Redis queue consumer + whatsapp-web.js
+     ├─ Dockerfile     # Container with Chrome/Puppeteer setup
+     └─ README.md      # Service documentation
+
+tests/
+ └─ push_sample_whatsapp_job.py  # Test script for WhatsApp service
 ```
 
 ## Requisitos previos
@@ -56,6 +65,27 @@ npm run dev
 ```
 
 Ajusta `NEXT_PUBLIC_API_BASE_URL` en el entorno del frontend para apuntar al backend (por defecto `http://localhost:8000`).
+
+### WhatsApp Service (Opcional)
+
+Servicio de notificaciones WhatsApp que consume mensajes desde una cola Redis:
+
+```bash
+# 1. Construir el servicio
+docker compose -f docker-compose.whatsapp.yml build whatsapp-service
+
+# 2. Autenticación inicial (una sola vez)
+python setup-whatsapp-web.py
+# Escanea el código QR, espera "session saved correctly", luego Ctrl+C
+
+# 3. Iniciar el servicio
+docker compose -f docker-compose.whatsapp.yml up -d
+
+# 4. Probar con un mensaje
+python tests/push_sample_whatsapp_job.py
+```
+
+El servicio mantiene la sesión de WhatsApp persistente y procesa automáticamente los mensajes añadidos a la cola `whatsapp:pending`. Ver `services/whatsapp/README.md` para más detalles.
 
 ## Estrategia de pruebas
 

@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  whatsapp-service:
+    build:
+      context: ./services/whatsapp
+      dockerfile: Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      WHATSAPP_QUEUE: whatsapp:pending
+      WHATSAPP_MAX_RETRIES: 5
+      WHATSAPP_CLIENT_ID: nerdeala
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+    volumes:
+      - whatsapp-session:/app/session-data
+
+volumes:
+  redis-data:
+  whatsapp-session:
